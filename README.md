@@ -1,6 +1,6 @@
 # VB Element Studio
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 **Requires:** WordPress 5.0+, PHP 7.4+, WPBakery Page Builder
 **License:** GPL-2.0-or-later
 
@@ -71,7 +71,7 @@ wp vb-element create \
   --description="Full-width hero with CTA"
 ```
 
-Flags: `--name` (required), `--html`, `--css`, `--params` (all accept `@filename` to read from file), `--slug`, `--category`, `--description`, `--icon`, `--require-params` (reject if no params provided). Post-creation validation automatically warns about hardcoded text.
+Flags: `--name` (required), `--html`, `--css`, `--params` (all accept `@filename` to read from file), `--html-base64`, `--css-base64`, `--params-base64` (base64-encoded alternatives that avoid shell escaping), `--slug`, `--category`, `--description`, `--icon`, `--require-params` (reject if no params provided). Post-creation validation automatically warns about hardcoded text.
 
 **list** -- List all elements.
 
@@ -88,7 +88,7 @@ wp vb-element get vb_hero_section
 wp vb-element get 42 --format=json
 ```
 
-**update** -- Update specific fields (omitted fields keep current values).
+**update** -- Update specific fields (omitted fields keep current values). Also supports `--html-base64`, `--css-base64`, `--params-base64`.
 
 ```bash
 wp vb-element update vb_hero_section --html=@hero-v2.html --css=@hero-v2.css
@@ -124,11 +124,27 @@ Flags: `--page` (required, accepts ID/slug/title), `--atts` (JSON object), `--po
 wp vb-element templates
 ```
 
-**create-from-template** -- Create an element from a bundled template.
+**create-from-template** -- Create an element from a bundled template. Supports `--override-defaults` to change param defaults without rewriting HTML/CSS.
 
 ```bash
 wp vb-element create-from-template hero-section
-wp vb-element create-from-template hero-section --name="Custom Hero"
+wp vb-element create-from-template benefits-cards --name="Dental Benefits" \
+  --override-defaults='{"heading":"Our Dental Benefits"}'
+```
+
+**create-batch** -- Create multiple elements from a single JSON file (array of element definitions).
+
+```bash
+wp vb-element create-batch elements.json
+cat elements.json | wp vb-element create-batch -
+wp vb-element create-batch elements.json --require-params
+```
+
+**place-batch** -- Place multiple elements on a page in one update, preserving order.
+
+```bash
+wp vb-element place-batch --page=42 --elements='["vb_hero","vb_benefits","vb_cta"]'
+wp vb-element place-batch --page=homepage --elements='[{"slug":"vb_hero","atts":{"heading":"Hi"}},"vb_cta"]'
 ```
 
 **validate** -- Scan an element for hardcoded text that should be parameterized.
@@ -234,10 +250,12 @@ wp vb-element create-from-template cta-banner
 # 2. Create the page
 wp post create --post_type=page --post_title="Landing Page" --post_status=publish --porcelain
 
-# 3. Place elements on the page (uses the returned page ID)
-wp vb-element place vb_hero_section --page=99 --atts='{"heading":"Welcome"}'
-wp vb-element place vb_features_grid --page=99
-wp vb-element place vb_cta_banner --page=99
+# 3. Place all elements in one call (uses the returned page ID, e.g. 99)
+wp vb-element place-batch --page=99 --elements='[
+    {"slug":"vb_hero_section","atts":{"heading":"Welcome"}},
+    "vb_features_grid",
+    "vb_cta_banner"
+]'
 ```
 
 ### Common Workflow: Custom Element from Scratch
@@ -289,6 +307,9 @@ VB_ES_API::import_element( $json_string_or_array );
 VB_ES_API::place_on_page( $page_id, 'vb_hero_section', ['heading' => 'Hi'], 'append' );
 VB_ES_API::get_templates();
 VB_ES_API::create_from_template( 'hero-section', ['name' => 'Custom Name'] );
+VB_ES_API::create_from_template( 'benefits-cards', ['override_defaults' => ['heading' => 'New']] );
+VB_ES_API::create_batch( [ [...element1...], [...element2...] ] );   // batch create
+VB_ES_API::place_batch( $page_id, ['vb_hero', 'vb_cta'], 'append' );// batch place
 VB_ES_API::validate_element( 'vb_hero_section' );   // check for hardcoded text
 ```
 

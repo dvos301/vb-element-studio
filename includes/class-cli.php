@@ -49,15 +49,25 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
      * [--icon=<icon>]
      * : Icon class. Default: dashicons-editor-code.
      *
+     * [--html-base64=<base64>]
+     * : HTML template as a base64-encoded string (avoids shell escaping).
+     *
+     * [--css-base64=<base64>]
+     * : CSS as a base64-encoded string.
+     *
+     * [--params-base64=<base64>]
+     * : Params JSON as a base64-encoded string.
+     *
      * [--require-params]
      * : Reject creation if no --params are provided.
      *
      * ## EXAMPLES
      *
      *     wp vb-element create --name="Hero Section" --html=@hero.html --css=@hero.css --params=@params.json
-     *     wp vb-element create --name="Banner" --html='<div class="banner"><h2>{{heading}}</h2></div>' --require-params
+     *     wp vb-element create --name="Banner" --html-base64="$(echo '<div>{{heading}}</div>' | base64)"
      */
     public function create( $args, $assoc_args ) {
+        $assoc_args = $this->apply_base64_args( $assoc_args );
         $assoc_args = $this->read_file_args( $assoc_args, [ 'html', 'css', 'params' ] );
         $assoc_args = $this->decode_params_arg( $assoc_args );
 
@@ -192,12 +202,22 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
      * [--icon=<icon>]
      * : New icon class.
      *
+     * [--html-base64=<base64>]
+     * : HTML template as a base64-encoded string.
+     *
+     * [--css-base64=<base64>]
+     * : CSS as a base64-encoded string.
+     *
+     * [--params-base64=<base64>]
+     * : Params JSON as a base64-encoded string.
+     *
      * ## EXAMPLES
      *
      *     wp vb-element update vb_hero_section --html=@hero-v2.html --css=@hero-v2.css
      *     wp vb-element update 42 --name="Updated Hero"
      */
     public function update( $args, $assoc_args ) {
+        $assoc_args = $this->apply_base64_args( $assoc_args );
         $assoc_args = $this->read_file_args( $assoc_args, [ 'html', 'css', 'params' ] );
         $assoc_args = $this->decode_params_arg( $assoc_args );
 
@@ -394,14 +414,28 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
      * [--category=<category>]
      * : Override the template's default category.
      *
+     * [--override-defaults=<json>]
+     * : JSON object mapping param_name → new default value.
+     *   Merges into the template's params without replacing the full definition.
+     *   Example: '{"heading":"Dental Benefits","subheading":"We care"}'
+     *
      * ## EXAMPLES
      *
      *     wp vb-element create-from-template hero-section
-     *     wp vb-element create-from-template hero-section --name="Custom Hero"
+     *     wp vb-element create-from-template benefits-cards --name="Dental Benefits" --override-defaults='{"heading":"Our Dental Benefits"}'
      *
      * @subcommand create-from-template
      */
     public function create_from_template( $args, $assoc_args ) {
+        if ( ! empty( $assoc_args['override-defaults'] ) ) {
+            $decoded = json_decode( $assoc_args['override-defaults'], true );
+            if ( json_last_error() !== JSON_ERROR_NONE ) {
+                WP_CLI::error( 'Invalid JSON in --override-defaults: ' . json_last_error_msg() );
+            }
+            $assoc_args['override_defaults'] = $decoded;
+            unset( $assoc_args['override-defaults'] );
+        }
+
         $result = VB_ES_API::create_from_template( $args[0], $assoc_args );
 
         if ( is_wp_error( $result ) ) {
@@ -410,6 +444,131 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
 
         $post_id = is_array( $result ) ? $result['post_id'] : $result;
         WP_CLI::success( "Element created from template \"{$args[0]}\" (ID: {$post_id})." );
+    }
+
+    /**
+     * Create multiple elements from a single JSON definition file.
+     *
+     * ## OPTIONS
+     *
+     * <file>
+     * : Path to a JSON file containing an array of element definitions.
+     *   Use "-" to read from stdin.
+     *
+     * [--require-params]
+     * : Reject any element that has no params defined.
+     *
+     * ## EXAMPLES
+     *
+     *     wp vb-element create-batch elements.json
+     *     cat elements.json | wp vb-element create-batch -
+     *
+     * @subcommand create-batch
+     */
+    public function create_batch( $args, $assoc_args ) {
+        $file = $args[0];
+
+        if ( $file === '-' ) {
+            $json = file_get_contents( 'php://stdin' );
+        } else {
+            if ( ! file_exists( $file ) ) {
+                WP_CLI::error( "File not found: {$file}" );
+            }
+            $json = file_get_contents( $file );
+        }
+
+        $elements = json_decode( $json, true );
+        if ( json_last_error() !== JSON_ERROR_NONE ) {
+            WP_CLI::error( 'Invalid JSON: ' . json_last_error_msg() );
+        }
+        if ( ! is_array( $elements ) || empty( $elements ) ) {
+            WP_CLI::error( 'JSON must be a non-empty array of element definitions.' );
+        }
+
+        $require_params = isset( $assoc_args['require-params'] );
+
+        if ( $require_params ) {
+            foreach ( $elements as $i => $el ) {
+                if ( empty( $el['params'] ) ) {
+                    WP_CLI::error( "Element at index {$i} (\"{$el['name']}\") has no params. --require-params is set." );
+                }
+            }
+        }
+
+        $results = VB_ES_API::create_batch( $elements );
+
+        $ok   = 0;
+        $fail = 0;
+        foreach ( $results as $r ) {
+            if ( $r['success'] ) {
+                WP_CLI::log( "  ✓ \"{$r['name']}\" created (ID: {$r['post_id']})" );
+                $ok++;
+            } else {
+                WP_CLI::warning( "  ✗ \"{$r['name']}\" failed: {$r['error']}" );
+                $fail++;
+            }
+        }
+
+        if ( $fail === 0 ) {
+            WP_CLI::success( "All {$ok} elements created." );
+        } else {
+            WP_CLI::warning( "{$ok} created, {$fail} failed." );
+        }
+    }
+
+    /**
+     * Place multiple elements on a page in a single update.
+     *
+     * Elements are inserted in the order given, each wrapped in its own
+     * [vc_row][vc_column] wrapper.
+     *
+     * ## OPTIONS
+     *
+     * --page=<page>
+     * : Target page ID, slug, or title.
+     *
+     * --elements=<json>
+     * : JSON array of element slugs or objects. Each entry can be:
+     *   - A string: shortcode slug (no custom attributes)
+     *   - An object: {"slug":"vb_hero","atts":{"heading":"Hello"}}
+     *
+     * [--position=<position>]
+     * : Where to insert: append (default) or prepend.
+     *
+     * ## EXAMPLES
+     *
+     *     wp vb-element place-batch --page=42 --elements='["vb_hero","vb_benefits","vb_cta"]'
+     *     wp vb-element place-batch --page=homepage --elements='[{"slug":"vb_hero","atts":{"heading":"Hello"}},{"slug":"vb_cta"}]'
+     *
+     * @subcommand place-batch
+     */
+    public function place_batch( $args, $assoc_args ) {
+        $page = $assoc_args['page'] ?? '';
+        if ( empty( $page ) ) {
+            WP_CLI::error( 'The --page flag is required.' );
+        }
+
+        $elements_json = $assoc_args['elements'] ?? '';
+        if ( empty( $elements_json ) ) {
+            WP_CLI::error( 'The --elements flag is required.' );
+        }
+
+        $elements = json_decode( $elements_json, true );
+        if ( json_last_error() !== JSON_ERROR_NONE ) {
+            WP_CLI::error( 'Invalid JSON in --elements: ' . json_last_error_msg() );
+        }
+        if ( ! is_array( $elements ) || empty( $elements ) ) {
+            WP_CLI::error( '--elements must be a non-empty JSON array.' );
+        }
+
+        $position = $assoc_args['position'] ?? 'append';
+
+        $result = VB_ES_API::place_batch( $page, $elements, $position );
+        if ( is_wp_error( $result ) ) {
+            WP_CLI::error( $result->get_error_message() );
+        }
+
+        WP_CLI::success( count( $elements ) . ' elements placed on page.' );
     }
 
     /**
@@ -477,6 +636,30 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
             WP_CLI::log( '  ⚠ ' . $warning );
         }
         WP_CLI::log( 'Run "wp vb-element validate ' . $result['slug'] . '" for details.' );
+    }
+
+    /**
+     * Decode --html-base64, --css-base64, --params-base64 flags into their
+     * plain counterparts, taking priority over file/inline values.
+     */
+    private function apply_base64_args( $assoc_args ) {
+        $map = [
+            'html-base64'   => 'html',
+            'css-base64'    => 'css',
+            'params-base64' => 'params',
+        ];
+        foreach ( $map as $b64_key => $target ) {
+            if ( ! isset( $assoc_args[ $b64_key ] ) ) {
+                continue;
+            }
+            $decoded = base64_decode( $assoc_args[ $b64_key ], true );
+            if ( $decoded === false ) {
+                WP_CLI::error( "Invalid base64 in --{$b64_key}." );
+            }
+            $assoc_args[ $target ] = $decoded;
+            unset( $assoc_args[ $b64_key ] );
+        }
+        return $assoc_args;
     }
 
     /**

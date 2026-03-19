@@ -73,11 +73,22 @@ Flags:
 - `--html` -- HTML template with `{{param_name}}` placeholders. Prefix with `@` to read from file.
 - `--css` -- CSS rules (auto-scoped to element wrapper). Prefix with `@` to read from file.
 - `--params` -- JSON array of parameter definitions. Prefix with `@` to read from file.
+- `--html-base64` -- HTML template as a base64-encoded string (avoids shell escaping issues in ephemeral SSH).
+- `--css-base64` -- CSS as a base64-encoded string.
+- `--params-base64` -- Params JSON as a base64-encoded string.
 - `--category` -- WPBakery category grouping. Default: `VB Elements`.
 - `--description` -- Short description.
 - `--slug` -- Shortcode tag. Auto-generated as `vb_<name>` if omitted.
 - `--icon` -- Dashicon class. Default: `dashicons-editor-code`.
 - `--require-params` -- Reject creation if no `--params` provided.
+
+Base64 flags take priority over `@file` and inline string values. Use them when shell escaping is problematic:
+
+```bash
+wp vb-element create --name="Banner" \
+  --html-base64="$(printf '<div>{{heading}}</div>' | base64)" \
+  --params-base64="$(printf '[{"param_name":"heading","type":"textfield","heading":"Heading","default":"Hello"}]' | base64)"
+```
 
 After creation, the CLI automatically validates the element and warns about any hardcoded text.
 
@@ -98,7 +109,7 @@ wp vb-element get 42 --format=json
 
 ### update
 
-Update specific fields of an existing element. Omitted fields keep their current values.
+Update specific fields of an existing element. Omitted fields keep their current values. Also supports `--html-base64`, `--css-base64`, `--params-base64` flags.
 
 ```bash
 wp vb-element update vb_hero_section --html=@hero-v2.html --css=@hero-v2.css
@@ -148,6 +159,69 @@ wp vb-element templates --format=json
 wp vb-element create-from-template hero-section
 wp vb-element create-from-template hero-section --name="Custom Hero" --category="My Elements"
 ```
+
+Flags: `--name`, `--category`, `--override-defaults` (JSON object of param_name → new default value).
+
+Override template defaults without writing full HTML/CSS from scratch:
+
+```bash
+wp vb-element create-from-template benefits-cards \
+  --name="Dental Benefits" \
+  --override-defaults='{"heading":"Our Dental Benefits","subheading":"We care about your smile"}'
+```
+
+### create-batch
+
+Create multiple elements from a single JSON file containing an array of element definitions.
+
+```bash
+wp vb-element create-batch elements.json
+cat elements.json | wp vb-element create-batch -
+wp vb-element create-batch elements.json --require-params
+```
+
+The JSON file is an array where each entry has the same keys as `create` flags (`name`, `html`, `css`, `params`, etc.):
+
+```json
+[
+    {
+        "name": "Hero Section",
+        "html": "<section class=\"hero\"><h1>{{heading}}</h1></section>",
+        "css": ".hero { padding: 80px 0; }",
+        "params": [{"param_name": "heading", "type": "textfield", "heading": "Heading", "default": "Welcome"}]
+    },
+    {
+        "name": "CTA Banner",
+        "html": "<div class=\"cta\"><h2>{{title}}</h2><a href=\"{{url}}\">{{button}}</a></div>",
+        "css": ".cta { text-align: center; }",
+        "params": [
+            {"param_name": "title", "type": "textfield", "heading": "Title", "default": "Get Started"},
+            {"param_name": "button", "type": "textfield", "heading": "Button Text", "default": "Sign Up"},
+            {"param_name": "url", "type": "textfield", "heading": "Button URL", "default": "#"}
+        ]
+    }
+]
+```
+
+### place-batch
+
+Place multiple elements on a page in a single `post_content` update, preserving order.
+
+```bash
+wp vb-element place-batch --page=42 --elements='["vb_hero","vb_benefits","vb_cta"]'
+```
+
+Each entry in the `--elements` array can be a string (slug only) or an object with custom attributes:
+
+```bash
+wp vb-element place-batch --page=homepage --elements='[
+    {"slug":"vb_hero_section","atts":{"heading":"Welcome"}},
+    "vb_features_grid",
+    {"slug":"vb_cta_banner","atts":{"title":"Get Started"}}
+]'
+```
+
+Flags: `--page` (required), `--elements` (required, JSON array), `--position` (`append`|`prepend`).
 
 ### validate
 
@@ -346,11 +420,13 @@ wp vb-element create-from-template cta-banner
 wp post create --post_type=page --post_title="Landing Page" --post_status=publish --porcelain
 # (returns page ID, e.g. 99)
 
-# 3. Place elements on the page in order
-wp vb-element place vb_hero_section --page=99 --atts='{"heading":"Welcome","subtitle":"Build your dream site"}'
-wp vb-element place vb_features_grid --page=99
-wp vb-element place vb_testimonial_card --page=99
-wp vb-element place vb_cta_banner --page=99
+# 3. Place all elements in one call (fastest)
+wp vb-element place-batch --page=99 --elements='[
+    {"slug":"vb_hero_section","atts":{"heading":"Welcome","subtitle":"Build your dream site"}},
+    "vb_features_grid",
+    "vb_testimonial_card",
+    "vb_cta_banner"
+]'
 ```
 
 ### Create a fully custom element
@@ -445,6 +521,9 @@ VB_ES_API::place_on_page( $page_id, 'vb_hero_section', ['heading' => 'Hi'], 'app
 VB_ES_API::get_templates();
 VB_ES_API::get_template( 'hero-section' );
 VB_ES_API::create_from_template( 'hero-section', ['name' => 'Custom Name'] );
+VB_ES_API::create_from_template( 'benefits-cards', ['override_defaults' => ['heading' => 'New']] );
+VB_ES_API::create_batch( [ [...element1...], [...element2...] ] );   // batch create
+VB_ES_API::place_batch( $page_id, ['vb_hero', 'vb_cta'], 'append' );// batch place
 VB_ES_API::validate_element( 'vb_hero_section' );   // returns warnings about hardcoded text
 ```
 

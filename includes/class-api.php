@@ -297,6 +297,8 @@ class VB_ES_API {
      *
      * @param string $template_slug Template filename slug.
      * @param array  $overrides     Fields to override from the template defaults.
+     *     Supports 'override_defaults' key: a map of param_name => new_default
+     *     that merges into the template's params without replacing the full array.
      * @return array|WP_Error
      */
     public static function create_from_template( $template_slug, $overrides = [] ) {
@@ -305,10 +307,111 @@ class VB_ES_API {
             return new WP_Error( 'template_not_found', 'Template not found: ' . $template_slug );
         }
 
+        $override_defaults = [];
+        if ( isset( $overrides['override_defaults'] ) ) {
+            $override_defaults = $overrides['override_defaults'];
+            unset( $overrides['override_defaults'] );
+        }
+
         $args = array_merge( $template, $overrides );
         unset( $args['template_slug'] );
 
+        if ( ! empty( $override_defaults ) && ! empty( $args['params'] ) ) {
+            foreach ( $args['params'] as &$param ) {
+                $pname = $param['param_name'] ?? '';
+                if ( isset( $override_defaults[ $pname ] ) ) {
+                    $param['default'] = $override_defaults[ $pname ];
+                }
+            }
+            unset( $param );
+        }
+
         return self::create_element( $args );
+    }
+
+    /**
+     * Create multiple elements in a single call.
+     *
+     * @param array[] $elements Array of element definition arrays (same format as create_element).
+     * @return array[] Results array, each with 'index', 'name', 'success', and 'post_id' or 'error'.
+     */
+    public static function create_batch( $elements ) {
+        $results = [];
+        foreach ( $elements as $i => $args ) {
+            $result = self::create_element( $args );
+            if ( is_wp_error( $result ) ) {
+                $results[] = [
+                    'index'   => $i,
+                    'name'    => $args['name'] ?? '(unnamed)',
+                    'success' => false,
+                    'error'   => $result->get_error_message(),
+                ];
+            } else {
+                $post_id = is_array( $result ) ? $result['post_id'] : $result;
+                $results[] = [
+                    'index'   => $i,
+                    'name'    => $args['name'] ?? '(unnamed)',
+                    'success' => true,
+                    'post_id' => $post_id,
+                ];
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * Place multiple elements on a page in a single post_content update.
+     *
+     * @param int|string $page_id  Page post ID, slug, or title.
+     * @param array      $elements Array of element entries. Each can be:
+     *     - A string (shortcode slug)
+     *     - An array with 'slug'/'element' and optional 'atts' keys
+     * @param string     $position 'append' (default) or 'prepend'.
+     * @return true|WP_Error
+     */
+    public static function place_batch( $page_id, $elements, $position = 'append' ) {
+        $page = self::resolve_page( $page_id );
+        if ( ! $page ) {
+            return new WP_Error( 'page_not_found', 'Page not found: ' . $page_id );
+        }
+
+        $blocks = [];
+        foreach ( $elements as $i => $entry ) {
+            $tag  = is_string( $entry ) ? $entry : ( $entry['slug'] ?? $entry['element'] ?? '' );
+            $atts = is_array( $entry ) ? ( $entry['atts'] ?? [] ) : [];
+
+            if ( empty( $tag ) ) {
+                return new WP_Error( 'invalid_entry', 'Element entry at index ' . $i . ' has no slug.' );
+            }
+
+            $element = self::resolve_element( $tag );
+            if ( ! $element ) {
+                return new WP_Error( 'element_not_found', 'Element not found: ' . $tag . ' (index ' . $i . ')' );
+            }
+
+            $shortcode = self::build_shortcode( $element['slug'], $atts );
+            $blocks[]  = '[vc_row][vc_column]' . $shortcode . '[/vc_column][/vc_row]';
+        }
+
+        $new_content = implode( "\n", $blocks );
+        $content     = $page->post_content;
+
+        if ( $position === 'prepend' ) {
+            $content = $new_content . "\n" . $content;
+        } else {
+            $content = rtrim( $content ) . "\n" . $new_content;
+        }
+
+        $result = wp_update_post( [
+            'ID'           => $page->ID,
+            'post_content' => $content,
+        ], true );
+
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        return true;
     }
 
     /**
