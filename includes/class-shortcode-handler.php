@@ -93,6 +93,15 @@ class VB_ES_Shortcode_Handler {
 
         $class_attr = ! empty( $wrapper_classes ) ? ' class="' . esc_attr( implode( ' ', $wrapper_classes ) ) . '"' : '';
 
+        foreach ( $params as $param ) {
+            $name = $param['param_name'];
+            $type = $param['type'] ?? 'textfield';
+            if ( $type === 'param_group' ) { continue; }
+            $value = $atts[ $name ] ?? '';
+            $value = $this->sanitize_param_value( $value, $type );
+            $scoped_css = str_replace( '{{' . $name . '}}', $value, $scoped_css );
+        }
+
         $html = '';
 
         if ( ! empty( $scoped_css ) && ! isset( $this->rendered_styles[ $scope_id ] ) ) {
