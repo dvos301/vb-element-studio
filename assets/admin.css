@@ -1,0 +1,132 @@
+.vb-es-wrap {
+    max-width: 960px;
+}
+
+.vb-es-section {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+
+.vb-es-section h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 1.2em;
+}
+
+.vb-es-code-textarea {
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    tab-size: 2;
+    min-height: 200px;
+    resize: vertical;
+}
+
+/* AI Detection */
+#vb-es-detect-btn {
+    font-size: 15px;
+}
+
+#vb-es-detect-spinner {
+    vertical-align: middle;
+    margin-left: 8px;
+}
+
+#vb-es-detect-status {
+    margin-top: 12px;
+}
+
+#vb-es-detect-status .notice {
+    margin: 0;
+}
+
+/* Param Builder */
+.vb-es-param-row {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.vb-es-param-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.vb-es-param-row-title {
+    font-size: 13px;
+    color: #555;
+}
+
+.vb-es-param-row-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.vb-es-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #666;
+}
+
+.vb-es-field input,
+.vb-es-field select {
+    width: 100%;
+}
+
+.vb-es-field-wide {
+    grid-column: 1 / -1;
+}
+
+.vb-es-field-wide input {
+    width: 100%;
+}
+
+/* Empty state */
+.vb-es-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin-top: 20px;
+}
+
+.vb-es-empty-state p {
+    font-size: 14px;
+    color: #666;
+}
+
+/* Delete link */
+.vb-es-delete-link {
+    color: #a00;
+}
+
+.vb-es-delete-link:hover {
+    color: #dc3232;
+}
+
+/* List table tweaks */
+.vb-es-wrap .wp-list-table code {
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 782px) {
+    .vb-es-param-row-fields {
+        grid-template-columns: 1fr;
+    }
+}

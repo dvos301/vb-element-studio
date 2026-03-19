@@ -1,0 +1,52 @@
+{
+    "name": "Pricing Card",
+    "description": "Single pricing tier card with price, feature list, and CTA button.",
+    "category": "Marketing",
+    "html": "<div class=\"vbes-pricing\">\n  <div class=\"vbes-pricing__header\">\n    <h3 class=\"vbes-pricing__plan\">{{plan_name}}</h3>\n    <div class=\"vbes-pricing__price\">\n      <span class=\"vbes-pricing__amount\">{{price}}</span>\n      <span class=\"vbes-pricing__period\">{{period}}</span>\n    </div>\n  </div>\n  <div class=\"vbes-pricing__features\">{{feature_list}}</div>\n  <a href=\"{{button_url}}\" class=\"vbes-pricing__btn\">{{button_text}}</a>\n</div>",
+    "css": ".vbes-pricing {\n  max-width: 360px;\n  margin: 0 auto;\n  background: #fff;\n  border: 2px solid #e9ecef;\n  border-radius: 12px;\n  padding: 40px 32px;\n  text-align: center;\n}\n.vbes-pricing__plan {\n  font-size: 1.125rem;\n  font-weight: 600;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n  color: {{accent_color}};\n  margin: 0 0 16px;\n}\n.vbes-pricing__amount {\n  font-size: 3rem;\n  font-weight: 800;\n  color: #1a1a1a;\n}\n.vbes-pricing__period {\n  font-size: 1rem;\n  color: #777;\n}\n.vbes-pricing__features {\n  text-align: left;\n  padding: 24px 0;\n  margin: 24px 0;\n  border-top: 1px solid #e9ecef;\n  border-bottom: 1px solid #e9ecef;\n  font-size: 0.95rem;\n  line-height: 2;\n  color: #444;\n}\n.vbes-pricing__btn {\n  display: inline-block;\n  width: 100%;\n  padding: 14px;\n  background: {{accent_color}};\n  color: #fff;\n  text-decoration: none;\n  border-radius: 6px;\n  font-weight: 600;\n  font-size: 1rem;\n  transition: opacity 0.2s;\n  box-sizing: border-box;\n}\n.vbes-pricing__btn:hover {\n  opacity: 0.9;\n}",
+    "params": [
+        {
+            "param_name": "plan_name",
+            "type": "textfield",
+            "heading": "Plan Name",
+            "default": "Professional"
+        },
+        {
+            "param_name": "price",
+            "type": "textfield",
+            "heading": "Price",
+            "default": "$49"
+        },
+        {
+            "param_name": "period",
+            "type": "textfield",
+            "heading": "Billing Period",
+            "default": "/ month"
+        },
+        {
+            "param_name": "feature_list",
+            "type": "textarea",
+            "heading": "Features",
+            "description": "Feature list (one per line or use HTML).",
+            "default": "Unlimited projects\n10 GB storage\nPriority support\nCustom domain\nAnalytics dashboard"
+        },
+        {
+            "param_name": "button_text",
+            "type": "textfield",
+            "heading": "Button Text",
+            "default": "Choose Plan"
+        },
+        {
+            "param_name": "button_url",
+            "type": "textfield",
+            "heading": "Button URL",
+            "default": "#"
+        },
+        {
+            "param_name": "accent_color",
+            "type": "colorpicker",
+            "heading": "Accent Color",
+            "default": "#4361ee"
+        }
+    ]
+}

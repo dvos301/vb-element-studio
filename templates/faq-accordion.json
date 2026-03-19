@@ -1,0 +1,51 @@
+{
+    "name": "FAQ Accordion",
+    "description": "Collapsible FAQ section with three question/answer pairs using HTML details/summary.",
+    "category": "Content",
+    "html": "<section class=\"vbes-faq\">\n  <h2 class=\"vbes-faq__heading\">{{heading}}</h2>\n  <div class=\"vbes-faq__list\">\n    <details class=\"vbes-faq__item\">\n      <summary class=\"vbes-faq__question\">{{q1}}</summary>\n      <div class=\"vbes-faq__answer\">{{a1}}</div>\n    </details>\n    <details class=\"vbes-faq__item\">\n      <summary class=\"vbes-faq__question\">{{q2}}</summary>\n      <div class=\"vbes-faq__answer\">{{a2}}</div>\n    </details>\n    <details class=\"vbes-faq__item\">\n      <summary class=\"vbes-faq__question\">{{q3}}</summary>\n      <div class=\"vbes-faq__answer\">{{a3}}</div>\n    </details>\n  </div>\n</section>",
+    "css": ".vbes-faq {\n  max-width: 720px;\n  margin: 0 auto;\n  padding: 64px 24px;\n}\n.vbes-faq__heading {\n  font-size: 2rem;\n  font-weight: 700;\n  text-align: center;\n  margin: 0 0 40px;\n}\n.vbes-faq__item {\n  border-bottom: 1px solid #e0e0e0;\n}\n.vbes-faq__question {\n  padding: 20px 0;\n  font-size: 1.1rem;\n  font-weight: 600;\n  cursor: pointer;\n  list-style: none;\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n}\n.vbes-faq__question::-webkit-details-marker {\n  display: none;\n}\n.vbes-faq__question::after {\n  content: '+';\n  font-size: 1.5rem;\n  font-weight: 300;\n  color: #999;\n  transition: transform 0.2s;\n}\ndetails[open] .vbes-faq__question::after {\n  content: '\\2212';\n}\n.vbes-faq__answer {\n  padding: 0 0 20px;\n  font-size: 0.95rem;\n  line-height: 1.7;\n  color: #555;\n}",
+    "params": [
+        {
+            "param_name": "heading",
+            "type": "textfield",
+            "heading": "Section Heading",
+            "default": "Frequently Asked Questions"
+        },
+        {
+            "param_name": "q1",
+            "type": "textfield",
+            "heading": "Question 1",
+            "default": "How do I get started?"
+        },
+        {
+            "param_name": "a1",
+            "type": "textarea",
+            "heading": "Answer 1",
+            "default": "Simply sign up for a free account, choose a template, and start building. No credit card required."
+        },
+        {
+            "param_name": "q2",
+            "type": "textfield",
+            "heading": "Question 2",
+            "default": "Can I cancel anytime?"
+        },
+        {
+            "param_name": "a2",
+            "type": "textarea",
+            "heading": "Answer 2",
+            "default": "Yes, you can cancel your subscription at any time. There are no long-term contracts or cancellation fees."
+        },
+        {
+            "param_name": "q3",
+            "type": "textfield",
+            "heading": "Question 3",
+            "default": "Do you offer support?"
+        },
+        {
+            "param_name": "a3",
+            "type": "textarea",
+            "heading": "Answer 3",
+            "default": "Absolutely. Our support team is available Monday through Friday via email and live chat."
+        }
+    ]
+}

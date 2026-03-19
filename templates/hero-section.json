@@ -1,0 +1,58 @@
+{
+    "name": "Hero Section",
+    "description": "Full-width hero banner with heading, subtitle, and call-to-action button.",
+    "category": "Landing Page",
+    "html": "<section class=\"vbes-hero\">\n  <div class=\"vbes-hero__inner\">\n    <h1 class=\"vbes-hero__heading\">{{heading}}</h1>\n    <p class=\"vbes-hero__subtitle\">{{subtitle}}</p>\n    <a href=\"{{button_url}}\" class=\"vbes-hero__btn\">{{button_text}}</a>\n  </div>\n</section>",
+    "css": ".vbes-hero {\n  background-color: {{bg_color}};\n  color: {{text_color}};\n  padding: 80px 24px;\n  text-align: center;\n}\n.vbes-hero__inner {\n  max-width: 800px;\n  margin: 0 auto;\n}\n.vbes-hero__heading {\n  font-size: 3rem;\n  font-weight: 700;\n  margin: 0 0 16px;\n  line-height: 1.15;\n}\n.vbes-hero__subtitle {\n  font-size: 1.25rem;\n  opacity: 0.85;\n  margin: 0 0 32px;\n  line-height: 1.6;\n}\n.vbes-hero__btn {\n  display: inline-block;\n  padding: 14px 36px;\n  background: {{button_color}};\n  color: #ffffff;\n  text-decoration: none;\n  border-radius: 6px;\n  font-size: 1rem;\n  font-weight: 600;\n  transition: opacity 0.2s;\n}\n.vbes-hero__btn:hover {\n  opacity: 0.9;\n}\n@media (max-width: 768px) {\n  .vbes-hero { padding: 48px 16px; }\n  .vbes-hero__heading { font-size: 2rem; }\n  .vbes-hero__subtitle { font-size: 1rem; }\n}",
+    "params": [
+        {
+            "param_name": "heading",
+            "type": "textfield",
+            "heading": "Heading",
+            "description": "Main hero heading.",
+            "default": "Build Something Amazing"
+        },
+        {
+            "param_name": "subtitle",
+            "type": "textarea",
+            "heading": "Subtitle",
+            "description": "Supporting text below the heading.",
+            "default": "Create beautiful, responsive websites with our powerful tools and intuitive builder."
+        },
+        {
+            "param_name": "button_text",
+            "type": "textfield",
+            "heading": "Button Text",
+            "description": "Call-to-action button label.",
+            "default": "Get Started"
+        },
+        {
+            "param_name": "button_url",
+            "type": "textfield",
+            "heading": "Button URL",
+            "description": "Link for the CTA button.",
+            "default": "#"
+        },
+        {
+            "param_name": "bg_color",
+            "type": "colorpicker",
+            "heading": "Background Color",
+            "description": "Section background color.",
+            "default": "#1a1a2e"
+        },
+        {
+            "param_name": "text_color",
+            "type": "colorpicker",
+            "heading": "Text Color",
+            "description": "Heading and body text color.",
+            "default": "#ffffff"
+        },
+        {
+            "param_name": "button_color",
+            "type": "colorpicker",
+            "heading": "Button Color",
+            "description": "CTA button background color.",
+            "default": "#e94560"
+        }
+    ]
+}

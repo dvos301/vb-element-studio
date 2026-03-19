@@ -1,0 +1,52 @@
+{
+    "name": "Features Grid",
+    "description": "Three-column feature grid with titles and descriptions.",
+    "category": "Landing Page",
+    "html": "<section class=\"vbes-features\">\n  <h2 class=\"vbes-features__heading\">{{heading}}</h2>\n  <div class=\"vbes-features__grid\">\n    <div class=\"vbes-features__item\">\n      <h3 class=\"vbes-features__title\">{{title_1}}</h3>\n      <p class=\"vbes-features__desc\">{{desc_1}}</p>\n    </div>\n    <div class=\"vbes-features__item\">\n      <h3 class=\"vbes-features__title\">{{title_2}}</h3>\n      <p class=\"vbes-features__desc\">{{desc_2}}</p>\n    </div>\n    <div class=\"vbes-features__item\">\n      <h3 class=\"vbes-features__title\">{{title_3}}</h3>\n      <p class=\"vbes-features__desc\">{{desc_3}}</p>\n    </div>\n  </div>\n</section>",
+    "css": ".vbes-features {\n  padding: 64px 24px;\n  text-align: center;\n}\n.vbes-features__heading {\n  font-size: 2rem;\n  font-weight: 700;\n  margin: 0 0 48px;\n}\n.vbes-features__grid {\n  display: grid;\n  grid-template-columns: repeat(3, 1fr);\n  gap: 32px;\n  max-width: 1000px;\n  margin: 0 auto;\n}\n.vbes-features__item {\n  padding: 32px 24px;\n  border-radius: 8px;\n  background: #f8f9fa;\n}\n.vbes-features__title {\n  font-size: 1.25rem;\n  font-weight: 600;\n  margin: 0 0 12px;\n}\n.vbes-features__desc {\n  font-size: 0.95rem;\n  color: #555;\n  line-height: 1.6;\n  margin: 0;\n}\n@media (max-width: 768px) {\n  .vbes-features__grid { grid-template-columns: 1fr; }\n  .vbes-features { padding: 40px 16px; }\n}",
+    "params": [
+        {
+            "param_name": "heading",
+            "type": "textfield",
+            "heading": "Section Heading",
+            "description": "Title above the feature columns.",
+            "default": "Why Choose Us"
+        },
+        {
+            "param_name": "title_1",
+            "type": "textfield",
+            "heading": "Feature 1 Title",
+            "default": "Lightning Fast"
+        },
+        {
+            "param_name": "desc_1",
+            "type": "textarea",
+            "heading": "Feature 1 Description",
+            "default": "Optimized for speed with lazy loading and minimal overhead."
+        },
+        {
+            "param_name": "title_2",
+            "type": "textfield",
+            "heading": "Feature 2 Title",
+            "default": "Fully Responsive"
+        },
+        {
+            "param_name": "desc_2",
+            "type": "textarea",
+            "heading": "Feature 2 Description",
+            "default": "Every element adapts beautifully to any screen size."
+        },
+        {
+            "param_name": "title_3",
+            "type": "textfield",
+            "heading": "Feature 3 Title",
+            "default": "Easy to Customize"
+        },
+        {
+            "param_name": "desc_3",
+            "type": "textarea",
+            "heading": "Feature 3 Description",
+            "default": "Change colors, text, and images without touching any code."
+        }
+    ]
+}

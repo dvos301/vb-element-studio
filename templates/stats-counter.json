@@ -1,0 +1,69 @@
+{
+    "name": "Stats Counter",
+    "description": "Row of four statistics with large numbers and labels.",
+    "category": "Content",
+    "html": "<section class=\"vbes-stats\">\n  <div class=\"vbes-stats__grid\">\n    <div class=\"vbes-stats__item\">\n      <span class=\"vbes-stats__value\">{{stat_1_value}}</span>\n      <span class=\"vbes-stats__label\">{{stat_1_label}}</span>\n    </div>\n    <div class=\"vbes-stats__item\">\n      <span class=\"vbes-stats__value\">{{stat_2_value}}</span>\n      <span class=\"vbes-stats__label\">{{stat_2_label}}</span>\n    </div>\n    <div class=\"vbes-stats__item\">\n      <span class=\"vbes-stats__value\">{{stat_3_value}}</span>\n      <span class=\"vbes-stats__label\">{{stat_3_label}}</span>\n    </div>\n    <div class=\"vbes-stats__item\">\n      <span class=\"vbes-stats__value\">{{stat_4_value}}</span>\n      <span class=\"vbes-stats__label\">{{stat_4_label}}</span>\n    </div>\n  </div>\n</section>",
+    "css": ".vbes-stats {\n  background: {{bg_color}};\n  padding: 64px 24px;\n}\n.vbes-stats__grid {\n  display: grid;\n  grid-template-columns: repeat(4, 1fr);\n  gap: 24px;\n  max-width: 960px;\n  margin: 0 auto;\n  text-align: center;\n}\n.vbes-stats__value {\n  display: block;\n  font-size: 2.75rem;\n  font-weight: 800;\n  color: {{accent_color}};\n  line-height: 1.2;\n}\n.vbes-stats__label {\n  display: block;\n  margin-top: 8px;\n  font-size: 0.95rem;\n  color: #555;\n  text-transform: uppercase;\n  letter-spacing: 0.04em;\n}\n@media (max-width: 768px) {\n  .vbes-stats__grid { grid-template-columns: repeat(2, 1fr); }\n}\n@media (max-width: 480px) {\n  .vbes-stats__grid { grid-template-columns: 1fr; }\n}",
+    "params": [
+        {
+            "param_name": "stat_1_value",
+            "type": "textfield",
+            "heading": "Stat 1 Value",
+            "default": "10K+"
+        },
+        {
+            "param_name": "stat_1_label",
+            "type": "textfield",
+            "heading": "Stat 1 Label",
+            "default": "Customers"
+        },
+        {
+            "param_name": "stat_2_value",
+            "type": "textfield",
+            "heading": "Stat 2 Value",
+            "default": "99.9%"
+        },
+        {
+            "param_name": "stat_2_label",
+            "type": "textfield",
+            "heading": "Stat 2 Label",
+            "default": "Uptime"
+        },
+        {
+            "param_name": "stat_3_value",
+            "type": "textfield",
+            "heading": "Stat 3 Value",
+            "default": "50M+"
+        },
+        {
+            "param_name": "stat_3_label",
+            "type": "textfield",
+            "heading": "Stat 3 Label",
+            "default": "Requests"
+        },
+        {
+            "param_name": "stat_4_value",
+            "type": "textfield",
+            "heading": "Stat 4 Value",
+            "default": "24/7"
+        },
+        {
+            "param_name": "stat_4_label",
+            "type": "textfield",
+            "heading": "Stat 4 Label",
+            "default": "Support"
+        },
+        {
+            "param_name": "bg_color",
+            "type": "colorpicker",
+            "heading": "Background Color",
+            "default": "#f8f9fa"
+        },
+        {
+            "param_name": "accent_color",
+            "type": "colorpicker",
+            "heading": "Number Color",
+            "default": "#4361ee"
+        }
+    ]
+}

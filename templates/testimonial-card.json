@@ -1,0 +1,35 @@
+{
+    "name": "Testimonial Card",
+    "description": "Quote block with customer name, role, and accent color.",
+    "category": "Social Proof",
+    "html": "<div class=\"vbes-testimonial\">\n  <blockquote class=\"vbes-testimonial__quote\">{{quote}}</blockquote>\n  <div class=\"vbes-testimonial__author\">\n    <span class=\"vbes-testimonial__name\">{{author_name}}</span>\n    <span class=\"vbes-testimonial__role\">{{author_role}}</span>\n  </div>\n</div>",
+    "css": ".vbes-testimonial {\n  max-width: 640px;\n  margin: 0 auto;\n  padding: 48px 32px;\n  text-align: center;\n}\n.vbes-testimonial__quote {\n  font-size: 1.25rem;\n  line-height: 1.7;\n  color: #333;\n  margin: 0 0 24px;\n  font-style: italic;\n  position: relative;\n  padding: 0 16px;\n}\n.vbes-testimonial__quote::before {\n  content: '\\201C';\n  font-size: 4rem;\n  color: {{accent_color}};\n  position: absolute;\n  top: -20px;\n  left: -8px;\n  line-height: 1;\n}\n.vbes-testimonial__author {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n}\n.vbes-testimonial__name {\n  font-weight: 700;\n  font-size: 1rem;\n  color: #1a1a1a;\n}\n.vbes-testimonial__role {\n  font-size: 0.875rem;\n  color: #777;\n}",
+    "params": [
+        {
+            "param_name": "quote",
+            "type": "textarea",
+            "heading": "Quote",
+            "description": "The testimonial text.",
+            "default": "This product completely transformed how we work. The team was up and running in a single afternoon."
+        },
+        {
+            "param_name": "author_name",
+            "type": "textfield",
+            "heading": "Author Name",
+            "default": "Jane Doe"
+        },
+        {
+            "param_name": "author_role",
+            "type": "textfield",
+            "heading": "Author Role",
+            "default": "CEO, Acme Corp"
+        },
+        {
+            "param_name": "accent_color",
+            "type": "colorpicker",
+            "heading": "Accent Color",
+            "description": "Color used for the quotation mark.",
+            "default": "#e94560"
+        }
+    ]
+}

@@ -1,0 +1,70 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "VB Element Studio Template",
+    "description": "Schema for bundled element templates used by VB Element Studio.",
+    "type": "object",
+    "required": ["name", "html", "params"],
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "Element display name shown in WPBakery."
+        },
+        "description": {
+            "type": "string",
+            "description": "Short description of what this element does."
+        },
+        "category": {
+            "type": "string",
+            "default": "VB Elements",
+            "description": "WPBakery element category for grouping."
+        },
+        "icon": {
+            "type": "string",
+            "default": "dashicons-editor-code",
+            "description": "Dashicon class or icon URL."
+        },
+        "html": {
+            "type": "string",
+            "description": "HTML template. Use {{param_name}} placeholders for editable values."
+        },
+        "css": {
+            "type": "string",
+            "description": "CSS rules. Selectors are automatically scoped to the element wrapper."
+        },
+        "params": {
+            "type": "array",
+            "description": "Editable parameter definitions for the WPBakery editor.",
+            "items": {
+                "type": "object",
+                "required": ["param_name", "type", "heading"],
+                "properties": {
+                    "param_name": {
+                        "type": "string",
+                        "description": "Snake_case identifier. Used as {{param_name}} in the HTML template."
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": ["textfield", "textarea", "colorpicker", "attach_image", "dropdown", "checkbox", "param_group"],
+                        "description": "WPBakery field type."
+                    },
+                    "heading": {
+                        "type": "string",
+                        "description": "Human-readable label shown in the editor."
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Help text shown below the field."
+                    },
+                    "default": {
+                        "type": "string",
+                        "description": "Default value."
+                    },
+                    "options": {
+                        "type": "string",
+                        "description": "Comma-separated options (for dropdown type only)."
+                    }
+                }
+            }
+        }
+    }
+}

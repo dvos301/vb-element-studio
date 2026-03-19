@@ -1,0 +1,41 @@
+{
+    "name": "Team Member",
+    "description": "Team member card with photo, name, role, and short biography.",
+    "category": "Content",
+    "html": "<div class=\"vbes-team-member\">\n  <div class=\"vbes-team-member__photo-wrap\">\n    <img src=\"{{photo}}\" alt=\"{{name}}\" class=\"vbes-team-member__photo\" />\n  </div>\n  <h3 class=\"vbes-team-member__name\">{{name}}</h3>\n  <p class=\"vbes-team-member__role\">{{role}}</p>\n  <p class=\"vbes-team-member__bio\">{{bio}}</p>\n</div>",
+    "css": ".vbes-team-member {\n  max-width: 320px;\n  margin: 0 auto;\n  text-align: center;\n  padding: 32px 24px;\n}\n.vbes-team-member__photo-wrap {\n  width: 140px;\n  height: 140px;\n  margin: 0 auto 20px;\n  border-radius: 50%;\n  overflow: hidden;\n  border: 4px solid {{accent_color}};\n}\n.vbes-team-member__photo {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n  display: block;\n}\n.vbes-team-member__name {\n  font-size: 1.25rem;\n  font-weight: 700;\n  margin: 0 0 4px;\n  color: #1a1a1a;\n}\n.vbes-team-member__role {\n  font-size: 0.9rem;\n  color: {{accent_color}};\n  font-weight: 600;\n  margin: 0 0 16px;\n}\n.vbes-team-member__bio {\n  font-size: 0.9rem;\n  line-height: 1.6;\n  color: #555;\n  margin: 0;\n}",
+    "params": [
+        {
+            "param_name": "photo",
+            "type": "attach_image",
+            "heading": "Photo",
+            "description": "Team member photograph.",
+            "default": ""
+        },
+        {
+            "param_name": "name",
+            "type": "textfield",
+            "heading": "Name",
+            "default": "Alex Johnson"
+        },
+        {
+            "param_name": "role",
+            "type": "textfield",
+            "heading": "Role / Title",
+            "default": "Lead Designer"
+        },
+        {
+            "param_name": "bio",
+            "type": "textarea",
+            "heading": "Biography",
+            "default": "Passionate about creating intuitive user experiences and beautiful interfaces."
+        },
+        {
+            "param_name": "accent_color",
+            "type": "colorpicker",
+            "heading": "Accent Color",
+            "description": "Photo border and role text color.",
+            "default": "#4361ee"
+        }
+    ]
+}

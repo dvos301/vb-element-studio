@@ -1,0 +1,39 @@
+{
+    "name": "CTA Banner",
+    "description": "Horizontal call-to-action banner with heading, text, and button.",
+    "category": "Marketing",
+    "html": "<div class=\"vbes-cta\">\n  <div class=\"vbes-cta__content\">\n    <h2 class=\"vbes-cta__heading\">{{heading}}</h2>\n    <p class=\"vbes-cta__text\">{{description}}</p>\n  </div>\n  <div class=\"vbes-cta__action\">\n    <a href=\"{{button_url}}\" class=\"vbes-cta__btn\">{{button_text}}</a>\n  </div>\n</div>",
+    "css": ".vbes-cta {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 32px;\n  background: {{bg_color}};\n  padding: 48px 40px;\n  border-radius: 12px;\n}\n.vbes-cta__content {\n  flex: 1;\n}\n.vbes-cta__heading {\n  font-size: 1.75rem;\n  font-weight: 700;\n  color: #fff;\n  margin: 0 0 8px;\n}\n.vbes-cta__text {\n  font-size: 1rem;\n  color: rgba(255,255,255,0.85);\n  margin: 0;\n  line-height: 1.6;\n}\n.vbes-cta__btn {\n  display: inline-block;\n  white-space: nowrap;\n  padding: 14px 32px;\n  background: #fff;\n  color: {{bg_color}};\n  text-decoration: none;\n  border-radius: 6px;\n  font-weight: 600;\n  font-size: 1rem;\n  transition: transform 0.2s;\n}\n.vbes-cta__btn:hover {\n  transform: translateY(-2px);\n}\n@media (max-width: 768px) {\n  .vbes-cta {\n    flex-direction: column;\n    text-align: center;\n    padding: 32px 24px;\n  }\n}",
+    "params": [
+        {
+            "param_name": "heading",
+            "type": "textfield",
+            "heading": "Heading",
+            "default": "Ready to Get Started?"
+        },
+        {
+            "param_name": "description",
+            "type": "textarea",
+            "heading": "Description",
+            "default": "Join thousands of happy customers and take your business to the next level."
+        },
+        {
+            "param_name": "button_text",
+            "type": "textfield",
+            "heading": "Button Text",
+            "default": "Start Free Trial"
+        },
+        {
+            "param_name": "button_url",
+            "type": "textfield",
+            "heading": "Button URL",
+            "default": "#"
+        },
+        {
+            "param_name": "bg_color",
+            "type": "colorpicker",
+            "heading": "Background Color",
+            "default": "#4361ee"
+        }
+    ]
+}

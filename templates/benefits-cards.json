@@ -1,0 +1,56 @@
+{
+    "name": "Benefits Cards",
+    "description": "Repeatable card grid with icon, title, and description per card. Uses param_group for dynamic item count.",
+    "category": "Landing Page",
+    "html": "<section class=\"vbes-benefits\">\n  <h2 class=\"vbes-benefits__heading\">{{heading}}</h2>\n  <p class=\"vbes-benefits__subtext\">{{subtext}}</p>\n  <div class=\"vbes-benefits__grid\">\n    {{#items}}\n    <div class=\"vbes-benefits__card\">\n      <div class=\"vbes-benefits__icon\">{{icon}}</div>\n      <h3 class=\"vbes-benefits__title\">{{title}}</h3>\n      <p class=\"vbes-benefits__desc\">{{description}}</p>\n    </div>\n    {{/items}}\n  </div>\n</section>",
+    "css": ".vbes-benefits {\n  padding: 72px 24px;\n  text-align: center;\n}\n.vbes-benefits__heading {\n  font-size: 2.25rem;\n  font-weight: 700;\n  margin: 0 0 12px;\n  color: #1a1a1a;\n}\n.vbes-benefits__subtext {\n  font-size: 1.1rem;\n  color: #666;\n  max-width: 600px;\n  margin: 0 auto 48px;\n  line-height: 1.6;\n}\n.vbes-benefits__grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));\n  gap: 28px;\n  max-width: 1100px;\n  margin: 0 auto;\n}\n.vbes-benefits__card {\n  background: #fff;\n  border: 1px solid #e8e8e8;\n  border-radius: 12px;\n  padding: 36px 28px;\n  text-align: left;\n  transition: box-shadow 0.2s;\n}\n.vbes-benefits__card:hover {\n  box-shadow: 0 4px 20px rgba(0,0,0,0.08);\n}\n.vbes-benefits__icon {\n  font-size: 2rem;\n  margin-bottom: 16px;\n}\n.vbes-benefits__title {\n  font-size: 1.15rem;\n  font-weight: 600;\n  margin: 0 0 8px;\n  color: #1a1a1a;\n}\n.vbes-benefits__desc {\n  font-size: 0.95rem;\n  line-height: 1.6;\n  color: #555;\n  margin: 0;\n}\n@media (max-width: 600px) {\n  .vbes-benefits { padding: 48px 16px; }\n  .vbes-benefits__heading { font-size: 1.75rem; }\n}",
+    "params": [
+        {
+            "param_name": "heading",
+            "type": "textfield",
+            "heading": "Section Heading",
+            "description": "Main heading above the cards.",
+            "default": "Why Choose Us"
+        },
+        {
+            "param_name": "subtext",
+            "type": "textarea",
+            "heading": "Section Subtext",
+            "description": "Supporting text below the heading.",
+            "default": "Everything you need to build faster, smarter, and more reliably."
+        },
+        {
+            "param_name": "items",
+            "type": "param_group",
+            "heading": "Benefit Cards",
+            "description": "Add, remove, or reorder cards.",
+            "default": [
+                {"icon": "\u26a1", "title": "Lightning Fast", "description": "Optimized for speed with lazy loading and minimal overhead."},
+                {"icon": "\ud83d\udd12", "title": "Enterprise Security", "description": "Bank-grade encryption and regular security audits keep your data safe."},
+                {"icon": "\ud83c\udfaf", "title": "Easy to Use", "description": "Intuitive interface that anyone on your team can learn in minutes."},
+                {"icon": "\ud83d\udce6", "title": "All-in-One Platform", "description": "Everything you need in a single dashboard — no extra plugins required."}
+            ],
+            "params": [
+                {
+                    "param_name": "icon",
+                    "type": "textfield",
+                    "heading": "Icon",
+                    "description": "Emoji or short text for the card icon.",
+                    "default": "\u2b50"
+                },
+                {
+                    "param_name": "title",
+                    "type": "textfield",
+                    "heading": "Card Title",
+                    "default": "Feature Title"
+                },
+                {
+                    "param_name": "description",
+                    "type": "textarea",
+                    "heading": "Card Description",
+                    "default": "A short description of this benefit or feature."
+                }
+            ]
+        }
+    ]
+}
