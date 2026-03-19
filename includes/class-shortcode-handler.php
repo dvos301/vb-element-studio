@@ -7,12 +7,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class VB_ES_Shortcode_Handler {
 
     private $element_manager;
-
-    // V2: Collect all scoped CSS strings during the render pass and output them
-    // once in wp_head to avoid duplicate <style> blocks if an element is used
-    // multiple times on the same page.
-    private $rendered_styles = [];
     private $enqueued_fonts = [];
+    private $render_instance_counter = 0;
 
     public function __construct( VB_ES_Element_Manager $element_manager ) {
         $this->element_manager = $element_manager;
@@ -41,6 +37,7 @@ class VB_ES_Shortcode_Handler {
         $params        = $element['params'];
         $scoped_css    = $element['scoped_css'];
         $scope_id      = $element['scope_id'];
+        $instance_scope_id = $this->build_instance_scope_id( $scope_id );
 
         $html_template = $this->extract_font_links( $html_template );
         $html_template = $this->strip_link_tags( $html_template );
@@ -102,14 +99,17 @@ class VB_ES_Shortcode_Handler {
             $scoped_css = str_replace( '{{' . $name . '}}', $value, $scoped_css );
         }
 
-        $html = '';
-
-        if ( ! empty( $scoped_css ) && ! isset( $this->rendered_styles[ $scope_id ] ) ) {
-            $html .= "<style>\n" . $scoped_css . "\n</style>\n";
-            $this->rendered_styles[ $scope_id ] = true;
+        if ( ! empty( $scope_id ) && ! empty( $instance_scope_id ) ) {
+            $scoped_css = str_replace( '#' . $scope_id, '#' . $instance_scope_id, $scoped_css );
         }
 
-        $html .= '<div id="' . esc_attr( $scope_id ) . '"' . $class_attr . '>' . "\n";
+        $html = '';
+
+        if ( ! empty( $scoped_css ) ) {
+            $html .= "<style>\n" . $scoped_css . "\n</style>\n";
+        }
+
+        $html .= '<div id="' . esc_attr( $instance_scope_id ) . '"' . $class_attr . '>' . "\n";
         $html .= $output . "\n";
         $html .= '</div>';
 
@@ -242,6 +242,17 @@ class VB_ES_Shortcode_Handler {
         }
 
         return [];
+    }
+
+    private function build_instance_scope_id( $scope_id ) {
+        $scope_id = sanitize_html_class( (string) $scope_id );
+        if ( $scope_id === '' ) {
+            $scope_id = 'vb-el';
+        }
+
+        $this->render_instance_counter++;
+
+        return $scope_id . '-' . $this->render_instance_counter . '-' . wp_rand( 1000, 9999 );
     }
 
     private function sanitize_param_value( $value, $type ) {

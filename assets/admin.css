@@ -44,6 +44,10 @@
     margin: 0;
 }
 
+#vb-es-import-status .notice {
+    margin: 0;
+}
+
 /* Param Builder */
 .vb-es-param-row {
     background: #f9f9f9;
@@ -80,7 +84,8 @@
 }
 
 .vb-es-field input,
-.vb-es-field select {
+.vb-es-field select,
+.vb-es-field textarea {
     width: 100%;
 }
 
@@ -90,6 +95,102 @@
 
 .vb-es-field-wide input {
     width: 100%;
+}
+
+.vb-es-param-group-box {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 16px;
+}
+
+.vb-es-param-group-default {
+    min-height: 140px;
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+}
+
+.vb-es-sub-params {
+    margin-top: 16px;
+}
+
+.vb-es-sub-params-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.vb-es-sub-param-row {
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.vb-es-sub-param-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.vb-es-is-invalid {
+    border-color: #d63638 !important;
+    box-shadow: 0 0 0 1px #d63638 !important;
+}
+
+.vb-es-import-card {
+    background: #f9f9f9;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 18px;
+    margin-bottom: 16px;
+}
+
+.vb-es-import-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.vb-es-import-card__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.vb-es-import-card__title {
+    font-size: 14px;
+}
+
+.vb-es-import-card__grid,
+.vb-es-placement-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.vb-es-import-card__details {
+    margin-top: 14px;
+}
+
+.vb-es-import-card__details summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.vb-es-import-card__advanced {
+    margin-top: 12px;
+}
+
+.vb-es-import-review .notice,
+.vb-es-import-card .notice {
+    margin-left: 0;
+    margin-right: 0;
 }
 
 /* Empty state */
@@ -126,7 +227,20 @@
 
 /* Responsive adjustments */
 @media screen and (max-width: 782px) {
-    .vb-es-param-row-fields {
+    .vb-es-param-row-fields,
+    .vb-es-sub-param-grid,
+    .vb-es-import-card__grid,
+    .vb-es-placement-fields {
         grid-template-columns: 1fr;
+    }
+
+    .vb-es-sub-params-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .vb-es-import-card__header {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }

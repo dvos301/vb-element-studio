@@ -8,7 +8,7 @@ class VB_ES_AI_Detector {
 
     private const ANTHROPIC_API_ENDPOINT = 'https://api.anthropic.com/v1/messages';
     private const ANTHROPIC_API_VERSION  = '2023-06-01';
-    private const OPENAI_API_ENDPOINT    = 'https://api.openai.com/v1/chat/completions';
+    private const OPENAI_API_ENDPOINT    = 'https://api.openai.com/v1/responses';
     private const GEMINI_API_ENDPOINT    = 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s';
 
     public static function get_provider_labels() {
@@ -22,20 +22,19 @@ class VB_ES_AI_Detector {
     public static function get_supported_models() {
         return [
             'anthropic' => [
-                'claude-3-5-sonnet-latest' => 'Claude 3.5 Sonnet (latest)',
-                'claude-3-7-sonnet-latest' => 'Claude 3.7 Sonnet (latest)',
-                'claude-3-5-haiku-latest'  => 'Claude 3.5 Haiku (latest)',
+                'claude-sonnet-4-6'          => 'Claude Sonnet 4.6',
+                'claude-opus-4-6'            => 'Claude Opus 4.6',
+                'claude-haiku-4-5-20251001'  => 'Claude Haiku 4.5',
             ],
             'openai' => [
-                'gpt-4o-mini' => 'GPT-4o mini',
-                'gpt-4o'      => 'GPT-4o',
-                'gpt-4.1'     => 'GPT-4.1',
-                'gpt-4.1-mini'=> 'GPT-4.1 mini',
+                'gpt-5.4-mini' => 'GPT-5.4 mini',
+                'gpt-5.4'      => 'GPT-5.4',
+                'gpt-5.4-nano' => 'GPT-5.4 nano',
             ],
             'gemini' => [
-                'gemini-2.0-flash'      => 'Gemini 2.0 Flash',
-                'gemini-2.0-flash-lite' => 'Gemini 2.0 Flash-Lite',
-                'gemini-1.5-pro'        => 'Gemini 1.5 Pro',
+                'gemini-2.5-flash'      => 'Gemini 2.5 Flash',
+                'gemini-2.5-flash-lite' => 'Gemini 2.5 Flash-Lite',
+                'gemini-2.5-pro'        => 'Gemini 2.5 Pro',
             ],
         ];
     }
@@ -44,7 +43,7 @@ class VB_ES_AI_Detector {
         $provider = sanitize_key( $provider );
         $models = self::get_supported_models();
         if ( ! isset( $models[ $provider ] ) || empty( $models[ $provider ] ) ) {
-            return 'claude-3-5-sonnet-latest';
+            return 'claude-sonnet-4-6';
         }
 
         return (string) array_key_first( $models[ $provider ] );
@@ -100,6 +99,7 @@ class VB_ES_AI_Detector {
 
     public function __construct() {
         add_action( 'wp_ajax_vb_es_detect_params', [ $this, 'ajax_detect_params' ] );
+        add_action( 'wp_ajax_vb_es_ingest_snippet', [ $this, 'ajax_ingest_snippet' ] );
     }
 
     public function ajax_detect_params() {
@@ -135,6 +135,36 @@ class VB_ES_AI_Detector {
         wp_send_json_success( $result );
     }
 
+    public function ajax_ingest_snippet() {
+        check_ajax_referer( 'vb_es_ajax_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( [ 'message' => 'Permission denied.' ] );
+        }
+
+        $provider = self::get_selected_provider();
+        $provider_labels = self::get_provider_labels();
+        $provider_label = $provider_labels[ $provider ] ?? 'Selected provider';
+        $model = self::get_selected_model( $provider );
+        $api_key = self::get_api_key_for_provider( $provider );
+
+        if ( empty( $api_key ) ) {
+            wp_send_json_error( [ 'message' => $provider_label . ' API key is not configured. Please set it in VB Element Studio Settings.' ] );
+        }
+
+        $snippet = wp_unslash( $_POST['snippet'] ?? '' );
+        if ( trim( $snippet ) === '' ) {
+            wp_send_json_error( [ 'message' => 'Paste combined HTML/CSS before analyzing the snippet.' ] );
+        }
+
+        $result = $this->ingest_snippet( $snippet, $provider, $model, $api_key );
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+        }
+
+        wp_send_json_success( $result );
+    }
+
     public function detect( $html, $css, $provider, $model, $api_key ) {
         $system_prompt = <<<'PROMPT'
 You are a WordPress developer assistant. Your job is to analyse HTML and CSS for a UI component and identify which parts should be editable parameters in a page builder.
@@ -147,7 +177,7 @@ The JSON must have this exact structure:
   "params": [
     {
       "param_name": "snake_case_name",
-      "type": "textfield|textarea|colorpicker|attach_image|dropdown|checkbox",
+      "type": "textfield|textarea|colorpicker|attach_image|dropdown|checkbox|param_group",
       "heading": "Human Readable Label",
       "description": "Brief description of what this controls",
       "default": "default value as string"
@@ -161,6 +191,11 @@ Rules for identifying parameters:
 - Hardcoded hex colours in inline styles or CSS → colorpicker
 - src values on img tags → attach_image
 - CSS class-driven variants if apparent → dropdown
+- Repeating cards, features, FAQs, team members, steps, or similar list items → param_group
+- For param_group, include:
+  - "default" as an array of item objects
+  - "params" as the nested field definitions for each item
+- Use {{#group_name}}...{{/group_name}} blocks in tokenised_html for param_group repeaters
 - Do NOT tokenise structural HTML attributes like id, class, data attributes
 - Do NOT tokenise CSS class names
 - Keep param_name values lowercase, snake_case, descriptive
@@ -185,13 +220,7 @@ PROMPT;
         }
 
         $ai_text = $result;
-
-        $ai_text = trim( $ai_text );
-        if ( strpos( $ai_text, '```' ) !== false ) {
-            $ai_text = preg_replace( '/^```(?:json)?\s*/m', '', $ai_text );
-            $ai_text = preg_replace( '/\s*```\s*$/m', '', $ai_text );
-            $ai_text = trim( $ai_text );
-        }
+        $ai_text = $this->prepare_ai_json_text( $ai_text );
 
         $parsed = $this->safe_json_decode( $ai_text );
 
@@ -203,28 +232,323 @@ PROMPT;
             return new WP_Error( 'invalid_response', 'AI response is missing required fields (tokenised_html, params).' );
         }
 
-        $allowed_types = [ 'textfield', 'textarea', 'colorpicker', 'attach_image', 'dropdown', 'checkbox' ];
-        $clean_params = [];
-        foreach ( $parsed['params'] as $param ) {
-            if ( empty( $param['param_name'] ) || empty( $param['type'] ) ) {
-                continue;
-            }
-            if ( ! in_array( $param['type'], $allowed_types, true ) ) {
-                $param['type'] = 'textfield';
-            }
-            $clean_params[] = [
-                'param_name'  => sanitize_key( $param['param_name'] ),
-                'type'        => $param['type'],
-                'heading'     => sanitize_text_field( $param['heading'] ?? $param['param_name'] ),
-                'description' => sanitize_text_field( $param['description'] ?? '' ),
-                'default'     => sanitize_text_field( $param['default'] ?? '' ),
+        return [
+            'tokenised_html' => $parsed['tokenised_html'],
+            'params'         => $this->sanitize_ai_params( $parsed['params'] ),
+        ];
+    }
+
+    public function ingest_snippet( $snippet, $provider, $model, $api_key ) {
+        $parsed_snippet = $this->parse_combined_snippet( $snippet );
+        if ( is_wp_error( $parsed_snippet ) ) {
+            return $parsed_snippet;
+        }
+
+        $sections = $this->detect_candidate_sections( $parsed_snippet['html'] );
+        if ( empty( $sections ) ) {
+            return new WP_Error( 'no_sections_detected', 'Could not detect any usable sections in the pasted snippet.' );
+        }
+
+        $global_warnings = array_merge(
+            $parsed_snippet['warnings'],
+            $this->detect_shared_css_warnings( $parsed_snippet['css'], count( $sections ) )
+        );
+
+        $default_category = get_option( 'vb_es_default_category', 'VB Elements' );
+        $candidates = [];
+
+        foreach ( $sections as $index => $section_html ) {
+            $candidate = [
+                'name'          => $this->suggest_element_name( $section_html, $index ),
+                'slug'          => '',
+                'description'   => '',
+                'category'      => $default_category,
+                'raw_html'      => $section_html,
+                'raw_css'       => $parsed_snippet['css'],
+                'html_template' => $section_html,
+                'params'        => [],
+                'warnings'      => [],
             ];
+
+            $detected = $this->detect( $section_html, $parsed_snippet['css'], $provider, $model, $api_key );
+            if ( is_wp_error( $detected ) ) {
+                $candidate['warnings'][] = 'AI detection fallback used: ' . $detected->get_error_message();
+            } else {
+                $candidate['html_template'] = $detected['tokenised_html'];
+                $candidate['params'] = $detected['params'];
+            }
+
+            $validation = VB_ES_API::validate_definition( $candidate );
+            if ( ! is_wp_error( $validation ) && ! empty( $validation['warnings'] ) ) {
+                $candidate['warnings'] = array_merge( $candidate['warnings'], $validation['warnings'] );
+            }
+
+            if ( ! empty( $global_warnings ) ) {
+                $candidate['warnings'] = array_merge( $candidate['warnings'], $global_warnings );
+            }
+
+            $candidate['warnings'] = array_values( array_unique( array_filter( $candidate['warnings'] ) ) );
+            $candidates[] = $candidate;
         }
 
         return [
-            'tokenised_html' => $parsed['tokenised_html'],
-            'params'         => $clean_params,
+            'html'            => $parsed_snippet['html'],
+            'css'             => $parsed_snippet['css'],
+            'warnings'        => array_values( array_unique( array_filter( $global_warnings ) ) ),
+            'section_count'   => count( $candidates ),
+            'candidates'      => $candidates,
         ];
+    }
+
+    private function sanitize_ai_params( $params ) {
+        if ( ! is_array( $params ) ) {
+            return [];
+        }
+
+        $allowed_types = [ 'textfield', 'textarea', 'colorpicker', 'attach_image', 'dropdown', 'checkbox', 'param_group' ];
+        $clean_params = [];
+
+        foreach ( $params as $param ) {
+            if ( ! is_array( $param ) || empty( $param['param_name'] ) ) {
+                continue;
+            }
+
+            $type = sanitize_key( $param['type'] ?? 'textfield' );
+            if ( ! in_array( $type, $allowed_types, true ) ) {
+                $type = 'textfield';
+            }
+
+            $clean_param = [
+                'param_name'  => sanitize_key( $param['param_name'] ),
+                'type'        => $type,
+                'heading'     => sanitize_text_field( $param['heading'] ?? $param['param_name'] ),
+                'description' => sanitize_text_field( $param['description'] ?? '' ),
+            ];
+
+            if ( $clean_param['param_name'] === '' ) {
+                continue;
+            }
+
+            if ( $type === 'param_group' ) {
+                $default_items = $param['default'] ?? [];
+                if ( ! is_array( $default_items ) ) {
+                    $default_items = [];
+                }
+
+                $clean_default = [];
+                foreach ( $default_items as $item ) {
+                    if ( ! is_array( $item ) ) {
+                        continue;
+                    }
+
+                    $clean_item = [];
+                    foreach ( $item as $key => $value ) {
+                        $clean_key = sanitize_key( $key );
+                        if ( $clean_key === '' ) {
+                            continue;
+                        }
+                        $clean_item[ $clean_key ] = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '';
+                    }
+
+                    if ( ! empty( $clean_item ) ) {
+                        $clean_default[] = $clean_item;
+                    }
+                }
+
+                $clean_param['default'] = $clean_default;
+                $clean_param['params']  = $this->sanitize_ai_params( $param['params'] ?? [] );
+                $clean_params[] = $clean_param;
+                continue;
+            }
+
+            if ( $type === 'dropdown' && isset( $param['options'] ) ) {
+                if ( is_array( $param['options'] ) ) {
+                    $param['options'] = implode( ',', array_map( 'sanitize_text_field', $param['options'] ) );
+                } else {
+                    $param['options'] = sanitize_text_field( (string) $param['options'] );
+                }
+                $clean_param['options'] = $param['options'];
+            }
+
+            $clean_param['default'] = $type === 'textarea'
+                ? sanitize_textarea_field( $param['default'] ?? '' )
+                : sanitize_text_field( $param['default'] ?? '' );
+
+            $clean_params[] = $clean_param;
+        }
+
+        return $clean_params;
+    }
+
+    private function parse_combined_snippet( $snippet ) {
+        $snippet = trim( (string) $snippet );
+        if ( $snippet === '' ) {
+            return new WP_Error( 'empty_snippet', 'The pasted snippet is empty.' );
+        }
+
+        $snippet = preg_replace( '/^\xEF\xBB\xBF/', '', $snippet );
+        $warnings = [];
+        $html = '';
+        $css = '';
+
+        if ( preg_match_all( '/```([a-zA-Z0-9_-]*)\s*([\s\S]*?)```/', $snippet, $matches, PREG_SET_ORDER ) ) {
+            foreach ( $matches as $match ) {
+                $language = strtolower( trim( $match[1] ) );
+                $content  = trim( $match[2] );
+
+                if ( in_array( $language, [ 'css', 'scss', 'less' ], true ) ) {
+                    $css .= "\n" . $content;
+                } else {
+                    $html .= "\n" . $content;
+                }
+            }
+
+            if ( trim( $html ) !== '' || trim( $css ) !== '' ) {
+                $warnings[] = 'Detected markdown code fences and extracted their contents automatically.';
+            }
+        }
+
+        if ( trim( $html ) === '' && trim( $css ) === '' ) {
+            $html = $snippet;
+        }
+
+        preg_match_all( '/<style\b[^>]*>(.*?)<\/style>/is', $html, $style_matches );
+        foreach ( $style_matches[1] ?? [] as $style_block ) {
+            $css .= "\n" . trim( $style_block );
+        }
+        $html = preg_replace( '/<style\b[^>]*>.*?<\/style>/is', '', $html );
+
+        if ( preg_match( '/<body\b[^>]*>(.*?)<\/body>/is', $html, $body_match ) ) {
+            $html = $body_match[1];
+            $warnings[] = 'Detected a full HTML document and extracted only the <body> contents.';
+        }
+
+        $html = preg_replace( '/<!doctype[^>]*>/i', '', $html );
+        $html = preg_replace( '/<\/?(?:html|head|body|meta|title|link)[^>]*>/i', '', $html );
+        $html = trim( $html );
+        $css  = trim( $css );
+
+        if ( $html === '' ) {
+            return new WP_Error( 'missing_html', 'No usable HTML was found in the pasted snippet.' );
+        }
+
+        return [
+            'html'     => $html,
+            'css'      => $css,
+            'warnings' => $warnings,
+        ];
+    }
+
+    private function detect_candidate_sections( $html ) {
+        $document = new DOMDocument();
+        $internal_errors = libxml_use_internal_errors( true );
+        $loaded = $document->loadHTML(
+            '<?xml encoding="utf-8" ?><div id="vb-es-root">' . $html . '</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors( $internal_errors );
+
+        if ( ! $loaded ) {
+            return [ trim( $html ) ];
+        }
+
+        $root = $document->getElementById( 'vb-es-root' );
+        if ( ! $root ) {
+            return [ trim( $html ) ];
+        }
+
+        $top_level = $this->element_children( $root );
+        if ( count( $top_level ) === 0 ) {
+            return [ trim( $html ) ];
+        }
+
+        if ( count( $top_level ) > 1 ) {
+            return array_map( [ $this, 'node_outer_html' ], $top_level );
+        }
+
+        $single = $top_level[0];
+        $section_like_children = [];
+        foreach ( $this->element_children( $single ) as $child ) {
+            if ( $this->is_candidate_section_node( $child ) ) {
+                $section_like_children[] = $child;
+            }
+        }
+
+        if ( count( $section_like_children ) > 1 ) {
+            return array_map( [ $this, 'node_outer_html' ], $section_like_children );
+        }
+
+        return [ $this->node_outer_html( $single ) ];
+    }
+
+    private function element_children( DOMNode $node ) {
+        $children = [];
+
+        foreach ( $node->childNodes as $child ) {
+            if ( $child instanceof DOMElement ) {
+                $children[] = $child;
+            }
+        }
+
+        return $children;
+    }
+
+    private function is_candidate_section_node( DOMElement $node ) {
+        $tag_name = strtolower( $node->tagName );
+        if ( in_array( $tag_name, [ 'section', 'article', 'aside', 'header', 'footer', 'main' ], true ) ) {
+            return true;
+        }
+
+        if ( $tag_name !== 'div' ) {
+            return false;
+        }
+
+        return count( $this->element_children( $node ) ) > 0;
+    }
+
+    private function node_outer_html( DOMNode $node ) {
+        return trim( $node->ownerDocument->saveHTML( $node ) );
+    }
+
+    private function suggest_element_name( $html, $index ) {
+        if ( preg_match( '/<h[1-3][^>]*>(.*?)<\/h[1-3]>/is', $html, $matches ) ) {
+            $heading = trim( wp_strip_all_tags( html_entity_decode( $matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+            if ( $heading !== '' ) {
+                return mb_substr( $heading, 0, 60 );
+            }
+        }
+
+        if ( preg_match( '/class\s*=\s*"([^"]+)"/i', $html, $matches ) ) {
+            $classes = preg_split( '/\s+/', trim( $matches[1] ) );
+            $class_name = sanitize_text_field( str_replace( [ '-', '_' ], ' ', $classes[0] ?? '' ) );
+            if ( $class_name !== '' ) {
+                return ucwords( $class_name );
+            }
+        }
+
+        return 'Imported Section ' . ( $index + 1 );
+    }
+
+    private function detect_shared_css_warnings( $css, $section_count ) {
+        $warnings = [];
+        if ( $section_count <= 1 || trim( (string) $css ) === '' ) {
+            return $warnings;
+        }
+
+        if ( preg_match( '/(^|,)\s*(html|body|\*|:root)\b/im', $css ) ) {
+            $warnings[] = 'Global selectors were detected in the pasted CSS. Those rules will be duplicated across imported sections and may need manual cleanup.';
+        }
+
+        if ( preg_match( '/@font-face|@keyframes|@property/i', $css ) ) {
+            $warnings[] = 'Shared CSS at-rules were detected. Review each imported section to make sure duplicated animation or font rules are acceptable.';
+        }
+
+        if ( ! empty( $warnings ) ) {
+            $warnings[] = 'The pasted CSS is currently applied to every detected section during import review.';
+        }
+
+        return $warnings;
     }
 
     private function request_ai_text( $provider, $model, $api_key, $system_prompt, $user_message ) {
@@ -284,18 +608,10 @@ PROMPT;
 
     private function request_openai( $model, $api_key, $system_prompt, $user_message ) {
         $body = [
-            'model' => $model,
-            'messages' => [
-                [
-                    'role'    => 'system',
-                    'content' => $system_prompt,
-                ],
-                [
-                    'role'    => 'user',
-                    'content' => $user_message,
-                ],
-            ],
-            'max_tokens' => 4096,
+            'model'             => $model,
+            'instructions'      => $system_prompt,
+            'input'             => $user_message,
+            'max_output_tokens' => 4096,
         ];
 
         $response = wp_remote_post( self::OPENAI_API_ENDPOINT, [
@@ -320,11 +636,12 @@ PROMPT;
             return new WP_Error( 'api_error', 'OpenAI API error: ' . $error_msg );
         }
 
-        if ( empty( $data['choices'][0]['message']['content'] ) ) {
+        $text = $this->extract_openai_response_text( $data );
+        if ( trim( $text ) === '' ) {
             return new WP_Error( 'api_empty_response', 'OpenAI API returned an empty response.' );
         }
 
-        return (string) $data['choices'][0]['message']['content'];
+        return $text;
     }
 
     private function request_gemini( $model, $api_key, $system_prompt, $user_message ) {
@@ -355,6 +672,7 @@ PROMPT;
             'generationConfig' => [
                 'maxOutputTokens' => 8192,
                 'temperature'     => 0.2,
+                'responseMimeType'=> 'application/json',
             ],
         ];
 
@@ -398,6 +716,105 @@ PROMPT;
         return $text;
     }
 
+    private function extract_openai_response_text( $data ) {
+        if ( ! is_array( $data ) ) {
+            return '';
+        }
+
+        if ( ! empty( $data['output_text'] ) && is_string( $data['output_text'] ) ) {
+            return $data['output_text'];
+        }
+
+        $text = '';
+        foreach ( $data['output'] ?? [] as $output_item ) {
+            if ( empty( $output_item['content'] ) || ! is_array( $output_item['content'] ) ) {
+                continue;
+            }
+
+            foreach ( $output_item['content'] as $content_item ) {
+                if ( isset( $content_item['text'] ) && is_string( $content_item['text'] ) ) {
+                    $text .= $content_item['text'];
+                }
+            }
+        }
+
+        return $text;
+    }
+
+    private function prepare_ai_json_text( $text ) {
+        $text = trim( (string) $text );
+        $text = preg_replace( '/^\xEF\xBB\xBF/', '', $text );
+
+        if ( function_exists( 'iconv' ) ) {
+            $converted = @iconv( 'UTF-8', 'UTF-8//IGNORE', $text );
+            if ( is_string( $converted ) && $converted !== '' ) {
+                $text = $converted;
+            }
+        }
+
+        if ( strpos( $text, '```' ) !== false ) {
+            $text = preg_replace( '/^```(?:json)?\s*/m', '', $text );
+            $text = preg_replace( '/\s*```\s*$/m', '', $text );
+            $text = trim( $text );
+        }
+
+        $extracted = $this->extract_first_json_object( $text );
+        if ( $extracted !== null ) {
+            $text = $extracted;
+        }
+
+        return trim( $text );
+    }
+
+    private function extract_first_json_object( $text ) {
+        $start = strpos( $text, '{' );
+        if ( $start === false ) {
+            return null;
+        }
+
+        $depth = 0;
+        $in_string = false;
+        $escape_next = false;
+        $len = strlen( $text );
+
+        for ( $i = $start; $i < $len; $i++ ) {
+            $char = $text[ $i ];
+
+            if ( $escape_next ) {
+                $escape_next = false;
+                continue;
+            }
+
+            if ( $in_string && $char === '\\' ) {
+                $escape_next = true;
+                continue;
+            }
+
+            if ( $char === '"' ) {
+                $in_string = ! $in_string;
+                continue;
+            }
+
+            if ( $in_string ) {
+                continue;
+            }
+
+            if ( $char === '{' ) {
+                $depth++;
+                continue;
+            }
+
+            if ( $char === '}' ) {
+                $depth--;
+                if ( $depth === 0 ) {
+                    return substr( $text, $start, $i - $start + 1 );
+                }
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Attempt to decode JSON that may contain literal control characters
      * inside string values (common with LLM-generated JSON containing HTML).
@@ -412,7 +829,9 @@ PROMPT;
      * @return array|WP_Error Parsed array on success, WP_Error on failure.
      */
     private function safe_json_decode( $text ) {
-        $parsed = json_decode( $text, true );
+        $text = $this->prepare_ai_json_text( $text );
+
+        $parsed = json_decode( $text, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( json_last_error() === JSON_ERROR_NONE && is_array( $parsed ) ) {
             return $parsed;
         }
@@ -420,7 +839,7 @@ PROMPT;
 
         $nuked = preg_replace( '/[\x00-\x1f]+/', ' ', $text );
         if ( is_string( $nuked ) ) {
-            $parsed = json_decode( $nuked, true );
+            $parsed = json_decode( $nuked, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
             if ( json_last_error() === JSON_ERROR_NONE && is_array( $parsed ) ) {
                 return $parsed;
             }
@@ -428,7 +847,7 @@ PROMPT;
         $tier2_error = json_last_error_msg();
 
         $fixed = $this->escape_control_chars_in_strings( $text );
-        $parsed = json_decode( $fixed, true );
+        $parsed = json_decode( $fixed, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( json_last_error() === JSON_ERROR_NONE && is_array( $parsed ) ) {
             return $parsed;
         }

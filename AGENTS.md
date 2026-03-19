@@ -1,6 +1,6 @@
 # VB Element Studio -- AI Agent Reference
 
-VB Element Studio is a WordPress plugin that creates custom WPBakery Page Builder elements from HTML/CSS. Each element is stored as a `vb_element` custom post type with metadata for the HTML template, CSS, and editable parameters. Elements render as shortcodes in page content and appear in the WPBakery visual editor.
+VB Element Studio is a WordPress plugin that creates custom WPBakery Page Builder elements from HTML/CSS. Each element is stored as a `vb_element` custom post type with metadata for the HTML template, CSS, and editable parameters. Elements render as shortcodes in page content and appear in the WPBakery visual editor. The admin UI now supports a one-box import flow that can ingest a combined HTML/CSS snippet, split it into candidate sections, and batch-create multiple reusable elements.
 
 **This file is intended for AI coding agents (Claude, Codex, etc.) operating via SSH/WP-CLI.**
 
@@ -47,6 +47,12 @@ wp vb-element create --name="My Banner" --html=@banner.html --css=@banner.css --
 # Place an element on a page
 wp vb-element place vb_my_banner --page=homepage --atts='{"heading":"Welcome"}'
 ```
+
+## Admin Workflow Notes
+
+- The default create flow is paste-first: users can paste one combined HTML/CSS snippet into the admin UI and review detected candidate sections before saving.
+- Import review may create multiple elements in one pass and optionally place them onto a page in detected order.
+- The importer duplicates extracted CSS across detected sections during review. If the source snippet uses global selectors such as `body`, `:root`, or shared animation/font rules, expect warnings and review each candidate before saving.
 
 ---
 

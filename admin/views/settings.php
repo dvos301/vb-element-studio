@@ -69,7 +69,7 @@ $allow_unfiltered    = get_option( 'vb_es_allow_unfiltered_html', '0' );
                         name="vb_es_ai_custom_model"
                         value="<?php echo esc_attr( $custom_model ); ?>"
                         class="regular-text"
-                        placeholder="e.g. gpt-4.1-mini or gemini-2.0-flash"
+                        placeholder="e.g. gpt-5.4-mini or gemini-2.5-flash"
                     />
                     <p class="description">If set, this overrides the preset model above.</p>
                 </td>

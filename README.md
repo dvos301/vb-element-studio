@@ -4,22 +4,23 @@
 **Requires:** WordPress 5.0+, PHP 7.4+, WPBakery Page Builder
 **License:** GPL-2.0-or-later
 
-Create custom WPBakery Page Builder elements from AI-generated HTML and CSS — without writing PHP. Paste a component, auto-detect editable parameters with one click, and register it as a fully functional WPBakery element.
+Create custom WPBakery Page Builder elements from AI-generated HTML and CSS — without writing PHP. Paste a full snippet, auto-detect reusable sections and editable parameters, and register one or many sections as fully functional WPBakery elements.
 
 ---
 
 ## What It Does
 
-VB Element Studio bridges the gap between AI-generated designs and WordPress page building. Instead of manually coding WPBakery elements with `vc_map()`, shortcode handlers, and parameter arrays, you paste HTML/CSS and the plugin does the rest.
+VB Element Studio bridges the gap between AI-generated designs and WordPress page building. Instead of manually coding WPBakery elements with `vc_map()`, shortcode handlers, and parameter arrays, you paste a combined HTML/CSS snippet and the plugin does the rest.
 
 ### The Workflow
 
-1. **Generate** a UI component (hero section, card grid, CTA banner, etc.) using an AI tool like Claude
-2. **Paste** the HTML and CSS into VB Element Studio's admin editor
-3. **Click "Auto-detect Parameters"** — the plugin calls your configured AI provider/model (Anthropic, OpenAI, or Gemini) to analyse the HTML and identify editable parts (headings, descriptions, button text, link URLs, colors)
-4. **Review** the suggested parameters, adjust or add your own
-5. **Save** — the plugin registers a new WPBakery element with a unique shortcode
-6. **Use it** — the element appears in WPBakery's element library, fully editable on any page
+1. **Generate** a UI component or full landing page using an AI tool like Claude, ChatGPT, or Gemini
+2. **Paste** the combined snippet into VB Element Studio's one-box import screen
+3. **Analyze** — the plugin extracts embedded CSS, detects reusable sections, and calls your configured AI provider/model (Anthropic, OpenAI, or Gemini) to build tokenised templates and params for each candidate element
+4. **Review** the detected sections, adjust names/categories/slugs, and inspect advanced HTML/CSS/template/params JSON when needed
+5. **Create** the selected sections as one or many WPBakery elements in a single batch flow
+6. **Optionally place** the created elements onto a page in detected order
+7. **Use them** — the elements appear in WPBakery's element library, fully editable on any page
 
 ### What Gets Created
 
@@ -28,6 +29,18 @@ Each saved element produces:
 - A **shortcode** (e.g. `[vb_benefits_grid]`) with editable attributes
 - **Scoped CSS** that won't conflict with your theme or other elements
 - A **settings panel** in WPBakery with all defined parameters (text fields, color pickers, image selectors, dropdowns, etc.)
+
+### Admin Import Flow
+
+The admin UI now supports a paste-first import workflow for AI-generated snippets:
+
+1. Paste one combined HTML/CSS snippet into the **Paste Full Snippet** box
+2. Click **Analyze Snippet**
+3. Review the detected candidate elements
+4. Create the selected elements in batch
+5. Optionally place the created elements onto a page immediately
+
+If you paste a full landing page with multiple `<section>` blocks, the importer attempts to split them into separate reusable VB elements while duplicating extracted CSS for review. The review step surfaces warnings when global/shared CSS may need manual cleanup.
 
 ---
 

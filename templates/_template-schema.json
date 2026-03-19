@@ -56,12 +56,32 @@
                         "description": "Help text shown below the field."
                     },
                     "default": {
-                        "type": "string",
-                        "description": "Default value."
+                        "description": "Default value. Use a string for standard params or an array of item objects for param_group.",
+                        "oneOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        ]
                     },
                     "options": {
                         "type": "string",
                         "description": "Comma-separated options (for dropdown type only)."
+                    },
+                    "params": {
+                        "type": "array",
+                        "description": "Nested field definitions for param_group items.",
+                        "items": {
+                            "$ref": "#/properties/params/items"
+                        }
                     }
                 }
             }

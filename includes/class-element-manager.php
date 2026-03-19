@@ -31,6 +31,10 @@ class VB_ES_Element_Manager {
         $html_template_in = (string) ( $data['html_template'] ?? '' );
 
         $sanitized = $this->sanitize_component_input( $raw_html_in, $html_template_in, $raw_css_in );
+        $params = $this->decode_params_json( $data['params_json'] ?? '[]' );
+        if ( is_wp_error( $params ) ) {
+            return $params;
+        }
 
         $post_data = [
             'post_type'   => 'vb_element',
@@ -59,12 +63,6 @@ class VB_ES_Element_Manager {
         update_post_meta( $post_id, '_vb_raw_css', (string) $sanitized['raw_css'] );
         update_post_meta( $post_id, '_vb_html_template', wp_kses( $sanitized['html_template'], self::allowed_html() ) );
         update_post_meta( $post_id, '_vb_sanitization_notes', wp_json_encode( $sanitized['notes'] ) );
-
-        $params_json = $data['params_json'] ?? '[]';
-        $params = json_decode( wp_unslash( $params_json ), true );
-        if ( ! is_array( $params ) ) {
-            $params = [];
-        }
         update_post_meta( $post_id, '_vb_params', wp_json_encode( $params ) );
 
         $scope_id = get_post_meta( $post_id, '_vb_scope_id', true );
@@ -166,6 +164,143 @@ class VB_ES_Element_Manager {
         }
 
         return $tag;
+    }
+
+    private function decode_params_json( $params_json ) {
+        $params_json = trim( (string) wp_unslash( $params_json ) );
+        if ( $params_json === '' ) {
+            return [];
+        }
+
+        $params = json_decode( $params_json, true );
+        if ( json_last_error() !== JSON_ERROR_NONE ) {
+            return new WP_Error( 'invalid_params_json', 'Parameters JSON is invalid: ' . json_last_error_msg() );
+        }
+
+        if ( ! is_array( $params ) ) {
+            return new WP_Error( 'invalid_params_json', 'Parameters JSON must decode to an array.' );
+        }
+
+        return $this->sanitize_params_schema( $params );
+    }
+
+    private function sanitize_params_schema( $params ) {
+        $clean_params = [];
+
+        foreach ( $params as $param ) {
+            if ( ! is_array( $param ) ) {
+                continue;
+            }
+
+            $param_name = sanitize_key( $param['param_name'] ?? '' );
+            if ( $param_name === '' ) {
+                continue;
+            }
+
+            $type = sanitize_key( $param['type'] ?? 'textfield' );
+            if ( ! in_array( $type, self::allowed_param_types(), true ) ) {
+                $type = 'textfield';
+            }
+
+            $clean_param = [
+                'param_name'  => $param_name,
+                'type'        => $type,
+                'heading'     => sanitize_text_field( $param['heading'] ?? $param_name ),
+                'description' => sanitize_text_field( $param['description'] ?? '' ),
+            ];
+
+            if ( $type === 'param_group' ) {
+                $child_params = $param['params'] ?? [];
+                if ( ! is_array( $child_params ) ) {
+                    $child_params = [];
+                }
+
+                $default_items = $this->normalize_param_group_default( $param['default'] ?? [] );
+                $clean_param['default'] = $default_items;
+                $clean_param['params']  = $this->sanitize_params_schema( $child_params );
+                $clean_params[] = $clean_param;
+                continue;
+            }
+
+            if ( $type === 'dropdown' ) {
+                $clean_param['options'] = $this->sanitize_dropdown_options( $param['options'] ?? '' );
+            }
+
+            $clean_param['default'] = $this->sanitize_param_default( $param['default'] ?? '', $type );
+            $clean_params[] = $clean_param;
+        }
+
+        return $clean_params;
+    }
+
+    private function normalize_param_group_default( $default ) {
+        if ( is_string( $default ) ) {
+            $decoded = json_decode( wp_unslash( $default ), true );
+            if ( json_last_error() === JSON_ERROR_NONE ) {
+                $default = $decoded;
+            }
+        }
+
+        if ( ! is_array( $default ) ) {
+            return [];
+        }
+
+        $items = [];
+        foreach ( $default as $item ) {
+            if ( ! is_array( $item ) ) {
+                continue;
+            }
+
+            $clean_item = [];
+            foreach ( $item as $key => $value ) {
+                $clean_key = sanitize_key( $key );
+                if ( $clean_key === '' ) {
+                    continue;
+                }
+                $clean_item[ $clean_key ] = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '';
+            }
+
+            if ( ! empty( $clean_item ) ) {
+                $items[] = $clean_item;
+            }
+        }
+
+        return $items;
+    }
+
+    private function sanitize_dropdown_options( $options ) {
+        if ( is_array( $options ) ) {
+            $options = implode( ',', $options );
+        }
+
+        $parts = array_filter( array_map( 'trim', explode( ',', (string) $options ) ), 'strlen' );
+        $parts = array_map( 'sanitize_text_field', $parts );
+
+        return implode( ',', $parts );
+    }
+
+    private function sanitize_param_default( $default, $type ) {
+        switch ( $type ) {
+            case 'textarea':
+                return sanitize_textarea_field( (string) $default );
+
+            case 'colorpicker':
+                $color = sanitize_hex_color( (string) $default );
+                return $color ? $color : sanitize_text_field( (string) $default );
+
+            case 'checkbox':
+                return ( $default === true || $default === 'true' || $default === '1' ) ? 'true' : 'false';
+
+            case 'attach_image':
+            case 'dropdown':
+            case 'textfield':
+            default:
+                return sanitize_text_field( (string) $default );
+        }
+    }
+
+    private static function allowed_param_types() {
+        return [ 'textfield', 'textarea', 'colorpicker', 'attach_image', 'dropdown', 'checkbox', 'param_group' ];
     }
 
     public static function allowed_html() {

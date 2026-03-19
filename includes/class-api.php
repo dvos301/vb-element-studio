@@ -493,12 +493,52 @@ class VB_ES_API {
             return new WP_Error( 'not_found', 'Element not found: ' . $id_or_slug );
         }
 
+        return self::build_validation_result(
+            $element['name'],
+            $element['slug'],
+            $element['html_template'],
+            $element['raw_css'] ?? '',
+            $element['params']
+        );
+    }
+
+    /**
+     * Validate an unsaved element definition array.
+     *
+     * @param array $definition Element-like array with html_template/raw_css/params fields.
+     * @return array|WP_Error
+     */
+    public static function validate_definition( $definition ) {
+        if ( ! is_array( $definition ) ) {
+            return new WP_Error( 'invalid_definition', 'Element definition must be an array.' );
+        }
+
+        return self::build_validation_result(
+            $definition['name'] ?? 'Unsaved Element',
+            $definition['slug'] ?? '',
+            $definition['html_template'] ?? '',
+            $definition['raw_css'] ?? '',
+            $definition['params'] ?? []
+        );
+    }
+
+    private static function build_validation_result( $name, $slug, $template, $raw_css, $params ) {
         $warnings = [];
-        $template = $element['html_template'];
-        $params   = $element['params'];
+        $template = (string) $template;
+        $raw_css  = (string) $raw_css;
+        $params   = is_array( $params ) ? $params : [];
+        $param_names = self::collect_param_names( $params );
+        $template_tokens = self::extract_placeholder_tokens( $template );
+        $css_tokens = self::extract_placeholder_tokens( $raw_css );
 
         if ( empty( $params ) ) {
             $warnings[] = 'Element has no parameters defined. All user-facing text must be parameterized with {{param_name}} placeholders.';
+        }
+
+        foreach ( $params as $param ) {
+            if ( ( $param['type'] ?? '' ) === 'param_group' && empty( $param['params'] ) ) {
+                $warnings[] = 'Param group {{' . ( $param['param_name'] ?? 'items' ) . '}} has no nested params defined.';
+            }
         }
 
         $stripped = preg_replace( '/\{\{[#\/]?\w+\}\}/', '', $template );
@@ -521,35 +561,56 @@ class VB_ES_API {
             }
         }
 
-        preg_match_all( '/(?:alt|title|placeholder|aria-label)\s*=\s*"([^"]*)"/', $stripped, $attr_matches );
-        foreach ( $attr_matches[1] ?? [] as $val ) {
-            $val = trim( $val );
-            if ( empty( $val ) ) {
+        preg_match_all( '/\b(alt|title|placeholder|aria-label)\s*=\s*"([^"]*)"/i', $template, $attr_matches, PREG_SET_ORDER );
+        foreach ( $attr_matches as $match ) {
+            $attr = strtolower( $match[1] );
+            $val  = trim( $match[2] );
+            if ( empty( $val ) || self::contains_placeholder( $val ) ) {
                 continue;
             }
-            $words = array_filter( preg_split( '/\s+/', $val ), function ( $w ) {
-                return strlen( trim( $w ) ) > 0;
-            } );
-            if ( count( $words ) > 3 ) {
-                $warnings[] = 'Hardcoded attribute: "' . mb_substr( $val, 0, 80 ) . '" — should be a {{param}}.';
+            $warnings[] = 'Hardcoded attribute ' . $attr . '="' . mb_substr( $val, 0, 80 ) . '" — should be a {{param}}.';
+        }
+
+        preg_match_all( '/\b(href|src)\s*=\s*"([^"]*)"/i', $template, $url_matches, PREG_SET_ORDER );
+        foreach ( $url_matches as $match ) {
+            $attr = strtolower( $match[1] );
+            $val  = trim( $match[2] );
+            if ( empty( $val ) || self::contains_placeholder( $val ) ) {
+                continue;
+            }
+            $warnings[] = 'Hardcoded ' . $attr . '="' . mb_substr( $val, 0, 80 ) . '" — URLs and media sources should be parameterized.';
+        }
+
+        $css_without_placeholders = preg_replace( '/\{\{[^}]+\}\}/', '', $raw_css );
+        preg_match_all( '/#[0-9a-fA-F]{3,8}\b/', $css_without_placeholders, $color_matches );
+        foreach ( array_unique( $color_matches[0] ?? [] ) as $color ) {
+            $warnings[] = 'Hardcoded CSS color ' . $color . ' — customizable colors should use {{param}} placeholders.';
+        }
+
+        foreach ( $template_tokens as $token ) {
+            if ( ! in_array( $token, $param_names, true ) ) {
+                $warnings[] = 'Template placeholder {{' . $token . '}} has no matching param definition.';
             }
         }
 
-        $raw_css     = $element['raw_css'] ?? '';
-        $param_names = array_column( $params, 'param_name' );
-        preg_match_all( '/\{\{(\w+)\}\}/', $raw_css, $css_token_matches );
-        $css_tokens = array_unique( $css_token_matches[1] ?? [] );
         foreach ( $css_tokens as $token ) {
             if ( ! in_array( $token, $param_names, true ) ) {
                 $warnings[] = 'CSS placeholder {{' . $token . '}} has no matching param definition — it will render as literal text.';
             }
         }
 
+        $used_tokens = array_unique( array_merge( $template_tokens, $css_tokens ) );
+        foreach ( $param_names as $param_name ) {
+            if ( ! in_array( $param_name, $used_tokens, true ) ) {
+                $warnings[] = 'Param "' . $param_name . '" is defined but not referenced in the template or CSS.';
+            }
+        }
+
         return [
-            'element'     => $element['name'],
-            'slug'        => $element['slug'],
+            'element'     => $name,
+            'slug'        => $slug,
             'param_count' => count( $params ),
-            'warnings'    => $warnings,
+            'warnings'    => array_values( array_unique( $warnings ) ),
             'valid'       => empty( $warnings ),
         ];
     }
@@ -586,6 +647,37 @@ class VB_ES_API {
         }
 
         return $args;
+    }
+
+    private static function collect_param_names( $params ) {
+        $names = [];
+
+        foreach ( $params as $param ) {
+            if ( ! is_array( $param ) ) {
+                continue;
+            }
+
+            $name = sanitize_key( $param['param_name'] ?? '' );
+            if ( $name !== '' ) {
+                $names[] = $name;
+            }
+
+            if ( ( $param['type'] ?? '' ) === 'param_group' && ! empty( $param['params'] ) && is_array( $param['params'] ) ) {
+                $names = array_merge( $names, self::collect_param_names( $param['params'] ) );
+            }
+        }
+
+        return array_values( array_unique( $names ) );
+    }
+
+    private static function extract_placeholder_tokens( $content ) {
+        preg_match_all( '/\{\{[#\/]?(\w+)\}\}/', (string) $content, $matches );
+
+        return array_values( array_unique( $matches[1] ?? [] ) );
+    }
+
+    private static function contains_placeholder( $value ) {
+        return (bool) preg_match( '/\{\{[^}]+\}\}/', (string) $value );
     }
 
     private static function resolve_page( $page_id ) {

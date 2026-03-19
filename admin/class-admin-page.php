@@ -88,8 +88,129 @@ class VB_ES_Admin_Page {
         }
 
         $this->handle_settings_save();
+        $this->handle_import_save();
         $this->handle_element_save();
         $this->handle_element_delete();
+    }
+
+    private function handle_import_save() {
+        if ( ! isset( $_POST['vb_es_save_import'] ) ) {
+            return;
+        }
+
+        if ( ! wp_verify_nonce( $_POST['_vb_es_import_nonce'] ?? '', 'vb_es_save_import' ) ) {
+            wp_die( 'Security check failed.' );
+        }
+
+        $candidates_json = wp_unslash( $_POST['vb_es_import_candidates_json'] ?? '[]' );
+        $candidates = json_decode( $candidates_json, true );
+        if ( json_last_error() !== JSON_ERROR_NONE || ! is_array( $candidates ) ) {
+            add_settings_error( 'vb_es_element', 'import_invalid', 'Could not parse the reviewed import candidates JSON.', 'error' );
+            set_transient( 'vb_es_element_errors', get_settings_errors( 'vb_es_element' ), 30 );
+            return;
+        }
+
+        if ( empty( $candidates ) ) {
+            add_settings_error( 'vb_es_element', 'import_empty', 'Select at least one detected section before creating elements.', 'error' );
+            set_transient( 'vb_es_element_errors', get_settings_errors( 'vb_es_element' ), 30 );
+            return;
+        }
+
+        $definitions = [];
+        foreach ( $candidates as $candidate ) {
+            if ( ! is_array( $candidate ) ) {
+                continue;
+            }
+
+            $definitions[] = [
+                'name'        => $candidate['name'] ?? 'Imported Element',
+                'slug'        => $candidate['slug'] ?? '',
+                'description' => $candidate['description'] ?? '',
+                'category'    => $candidate['category'] ?? get_option( 'vb_es_default_category', 'VB Elements' ),
+                'html'        => $candidate['raw_html'] ?? '',
+                'html_template' => $candidate['html_template'] ?? ( $candidate['raw_html'] ?? '' ),
+                'css'         => $candidate['raw_css'] ?? '',
+                'params'      => $candidate['params'] ?? [],
+            ];
+        }
+
+        if ( empty( $definitions ) ) {
+            add_settings_error( 'vb_es_element', 'import_empty_defs', 'No valid candidate definitions were available to create.', 'error' );
+            set_transient( 'vb_es_element_errors', get_settings_errors( 'vb_es_element' ), 30 );
+            return;
+        }
+
+        $results = VB_ES_API::create_batch( $definitions );
+        $created = [];
+        $errors = [];
+        $warnings = [];
+
+        foreach ( $results as $result ) {
+            if ( ! empty( $result['success'] ) ) {
+                $post_id = absint( $result['post_id'] ?? 0 );
+                $element = $post_id ? VB_ES_API::get_element( $post_id ) : null;
+                if ( $element ) {
+                    $created[] = [
+                        'id'   => $element['id'],
+                        'name' => $element['name'],
+                        'slug' => $element['slug'],
+                    ];
+
+                    $validation = VB_ES_API::validate_element( $element['id'] );
+                    if ( ! is_wp_error( $validation ) && ! empty( $validation['warnings'] ) ) {
+                        $warnings[ $element['slug'] ] = $validation['warnings'];
+                    }
+                }
+                continue;
+            }
+
+            $errors[] = $result['name'] . ': ' . ( $result['error'] ?? 'Unknown error' );
+        }
+
+        $placement_enabled = isset( $_POST['vb_es_place_after_create'] );
+        $page_target = sanitize_text_field( $_POST['vb_es_page_target'] ?? '' );
+        $page_position = sanitize_key( $_POST['vb_es_page_position'] ?? 'append' );
+        if ( ! in_array( $page_position, [ 'append', 'prepend' ], true ) ) {
+            $page_position = 'append';
+        }
+
+        $page_url = '';
+        if ( $placement_enabled && ! empty( $created ) ) {
+            if ( $page_target === '' ) {
+                $errors[] = 'Page placement was selected, but no page target was provided.';
+            } else {
+                $place_result = VB_ES_API::place_batch(
+                    $page_target,
+                    array_map(
+                        function ( $created_element ) {
+                            return $created_element['slug'];
+                        },
+                        $created
+                    ),
+                    $page_position
+                );
+
+                if ( is_wp_error( $place_result ) ) {
+                    $errors[] = 'Created elements, but page placement failed: ' . $place_result->get_error_message();
+                } else {
+                    $page_url = (string) $place_result;
+                }
+            }
+        }
+
+        set_transient(
+            'vb_es_import_results_' . get_current_user_id(),
+            [
+                'created'  => $created,
+                'errors'   => $errors,
+                'warnings' => $warnings,
+                'page_url' => $page_url,
+            ],
+            120
+        );
+
+        wp_redirect( admin_url( 'admin.php?page=vb-es-edit&imported=1' ) );
+        exit;
     }
 
     private function handle_settings_save() {
@@ -165,6 +286,11 @@ class VB_ES_Admin_Page {
         $notes = is_array( $result ) ? (array) ( $result['sanitization_notes'] ?? [] ) : [];
         if ( ! empty( $notes ) ) {
             set_transient( 'vb_es_sanitization_notes_' . get_current_user_id(), $notes, 120 );
+        }
+
+        $validation = VB_ES_API::validate_element( $post_id );
+        if ( ! is_wp_error( $validation ) && ! empty( $validation['warnings'] ) ) {
+            set_transient( 'vb_es_validation_warnings_' . get_current_user_id(), (array) $validation['warnings'], 120 );
         }
 
         wp_redirect( admin_url( 'admin.php?page=vb-es-edit&element_id=' . $post_id . '&saved=1' ) );
