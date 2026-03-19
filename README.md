@@ -1,6 +1,6 @@
 # VB Element Studio
 
-**Version:** 1.4.0
+**Version:** 1.5.0
 **Requires:** WordPress 5.0+, PHP 7.4+, WPBakery Page Builder
 **License:** GPL-2.0-or-later
 
@@ -46,7 +46,9 @@ If you paste a full landing page with multiple `<section>` blocks, the importer 
 
 ## IMPORTANT: Parameterize All Content
 
-**Every element MUST define params for ALL user-facing text** — headings, descriptions, button labels, URLs, colors. Never hardcode content. Use `{{param_name}}` placeholders in HTML. For repeating items (cards, features, steps), use `param_group` with `{{#items}}...{{/items}}` repeater blocks. After creating any element, run `wp vb-element validate <slug>` to check for missed hardcoded text.
+**Every element MUST define params for ALL user-facing text** — headings, descriptions, button labels, URLs, colors, and other editable strings. Never hardcode content. Use `{{param_name}}` placeholders in HTML. For repeating items (cards, features, steps), use `param_group` with `{{#items}}...{{/items}}` repeater blocks.
+
+Elements that still contain hardcoded user-facing content are now rejected on save/import. The plugin will not create an element unless the editable content is fully represented in params.
 
 ---
 
@@ -84,7 +86,7 @@ wp vb-element create \
   --description="Full-width hero with CTA"
 ```
 
-Flags: `--name` (required), `--html`, `--css`, `--params` (all accept `@filename` to read from file), `--html-base64`, `--css-base64`, `--params-base64` (base64-encoded alternatives that avoid shell escaping), `--slug`, `--category`, `--description`, `--icon`, `--require-params` (reject if no params provided). Post-creation validation automatically warns about hardcoded text.
+Flags: `--name` (required), `--html`, `--css`, `--params` (all accept `@filename` to read from file), `--html-base64`, `--css-base64`, `--params-base64` (base64-encoded alternatives that avoid shell escaping), `--slug`, `--category`, `--description`, `--icon`, `--require-params` (reject if no params provided). Creation now fails if validation finds hardcoded user-facing content or placeholders without matching params.
 
 **list** -- List all elements.
 

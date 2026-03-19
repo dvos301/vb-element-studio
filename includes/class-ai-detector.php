@@ -185,11 +185,13 @@ The JSON must have this exact structure:
   ]
 }
 
-Rules for identifying parameters:
-- Visible text content (headings, paragraphs, button labels) → textfield or textarea
+ Rules for identifying parameters:
+- EVERY user-facing string must be editable. Do not leave visible text hardcoded.
+- Visible text content (headings, paragraphs, button labels, badges, captions, list items, small labels) → textfield or textarea
+- alt, title, placeholder, and aria-label values → textfield
 - href values on links → textfield
-- Hardcoded hex colours in inline styles or CSS → colorpicker
 - src values on img tags → attach_image
+- Hardcoded hex colours in inline styles or CSS → colorpicker
 - CSS class-driven variants if apparent → dropdown
 - Repeating cards, features, FAQs, team members, steps, or similar list items → param_group
 - For param_group, include:
@@ -199,7 +201,9 @@ Rules for identifying parameters:
 - Do NOT tokenise structural HTML attributes like id, class, data attributes
 - Do NOT tokenise CSS class names
 - Keep param_name values lowercase, snake_case, descriptive
-- Be selective — only surface params a non-developer would reasonably want to edit
+- If a site owner might want to change it in WPBakery, it MUST be a param
+- If you are unsure whether text should be editable, make it editable
+- The backend editor can only show declared params. Any remaining hardcoded user-facing content is a failure
 - IMPORTANT: All newlines inside JSON string values MUST be escaped as \n — never use literal newline characters inside strings
 - WPBakery compatibility guardrails:
   - Do NOT include <script> tags

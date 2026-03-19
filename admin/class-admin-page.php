@@ -268,7 +268,11 @@ class VB_ES_Admin_Page {
             'params_json'   => $_POST['vb_es_params_json'] ?? '[]',
         ];
 
-        $result = $this->element_manager->save_element( $data );
+        if ( ! empty( $data['id'] ) ) {
+            $result = VB_ES_API::update_element( $data['id'], $data );
+        } else {
+            $result = VB_ES_API::create_element( $data );
+        }
 
         if ( is_wp_error( $result ) ) {
             add_settings_error( 'vb_es_element', 'save_failed', 'Failed to save element: ' . $result->get_error_message(), 'error' );
@@ -286,11 +290,6 @@ class VB_ES_Admin_Page {
         $notes = is_array( $result ) ? (array) ( $result['sanitization_notes'] ?? [] ) : [];
         if ( ! empty( $notes ) ) {
             set_transient( 'vb_es_sanitization_notes_' . get_current_user_id(), $notes, 120 );
-        }
-
-        $validation = VB_ES_API::validate_element( $post_id );
-        if ( ! is_wp_error( $validation ) && ! empty( $validation['warnings'] ) ) {
-            set_transient( 'vb_es_validation_warnings_' . get_current_user_id(), (array) $validation['warnings'], 120 );
         }
 
         wp_redirect( admin_url( 'admin.php?page=vb-es-edit&element_id=' . $post_id . '&saved=1' ) );

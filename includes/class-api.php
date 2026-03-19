@@ -75,6 +75,17 @@ class VB_ES_API {
             'params_json'   => $args['params_json'] ?? '[]',
         ];
 
+        $validation_error = self::validation_error_from_definition( [
+            'name'          => $data['name'],
+            'slug'          => $data['slug'],
+            'html_template' => $data['html_template'],
+            'raw_css'       => $data['raw_css'],
+            'params'        => self::decode_params_for_validation( $data['params_json'] ),
+        ] );
+        if ( $validation_error ) {
+            return $validation_error;
+        }
+
         return self::manager()->save_element( $data );
     }
 
@@ -106,6 +117,17 @@ class VB_ES_API {
             'html_template' => $args['html_template'] ?? $existing['html_template'],
             'params_json'   => $args['params_json'] ?? $existing['params_json'],
         ];
+
+        $validation_error = self::validation_error_from_definition( [
+            'name'          => $data['name'],
+            'slug'          => $data['slug'],
+            'html_template' => $data['html_template'],
+            'raw_css'       => $data['raw_css'],
+            'params'        => self::decode_params_for_validation( $data['params_json'] ),
+        ] );
+        if ( $validation_error ) {
+            return $validation_error;
+        }
 
         return self::manager()->save_element( $data );
     }
@@ -546,19 +568,14 @@ class VB_ES_API {
         preg_match_all( '/>([^<]+)</', $stripped, $text_matches );
         foreach ( $text_matches[1] as $text ) {
             $text = trim( $text );
-            if ( empty( $text ) ) {
+            if ( empty( $text ) || ! self::is_meaningful_visible_text( $text ) ) {
                 continue;
             }
-            $words = array_filter( preg_split( '/\s+/', $text ), function ( $w ) {
-                return strlen( trim( $w ) ) > 0;
-            } );
-            if ( count( $words ) > 3 ) {
-                $preview = mb_substr( $text, 0, 80 );
-                if ( mb_strlen( $text ) > 80 ) {
-                    $preview .= '...';
-                }
-                $warnings[] = 'Hardcoded text: "' . $preview . '" — should be a {{param}}.';
+            $preview = mb_substr( $text, 0, 80 );
+            if ( mb_strlen( $text ) > 80 ) {
+                $preview .= '...';
             }
+            $warnings[] = 'Hardcoded text: "' . $preview . '" — should be a {{param}}.';
         }
 
         preg_match_all( '/\b(alt|title|placeholder|aria-label)\s*=\s*"([^"]*)"/i', $template, $attr_matches, PREG_SET_ORDER );
@@ -678,6 +695,41 @@ class VB_ES_API {
 
     private static function contains_placeholder( $value ) {
         return (bool) preg_match( '/\{\{[^}]+\}\}/', (string) $value );
+    }
+
+    private static function is_meaningful_visible_text( $text ) {
+        $decoded = html_entity_decode( (string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+        $decoded = trim( preg_replace( '/\s+/u', ' ', $decoded ) );
+
+        if ( $decoded === '' ) {
+            return false;
+        }
+
+        return (bool) preg_match( '/[^\s\p{P}]/u', $decoded );
+    }
+
+    private static function decode_params_for_validation( $params_json ) {
+        if ( is_array( $params_json ) ) {
+            return $params_json;
+        }
+
+        $decoded = json_decode( (string) $params_json, true );
+
+        return is_array( $decoded ) ? $decoded : [];
+    }
+
+    private static function validation_error_from_definition( $definition ) {
+        $validation = self::validate_definition( $definition );
+        if ( is_wp_error( $validation ) || ! empty( $validation['valid'] ) ) {
+            return null;
+        }
+
+        $warnings = array_slice( array_values( array_unique( $validation['warnings'] ?? [] ) ), 0, 12 );
+
+        return new WP_Error(
+            'validation_failed',
+            'Element must be fully editable before it can be saved: ' . implode( ' | ', $warnings )
+        );
     }
 
     private static function resolve_page( $page_id ) {

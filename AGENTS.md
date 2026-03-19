@@ -15,7 +15,8 @@ VB Element Studio is a WordPress plugin that creates custom WPBakery Page Builde
 - Every URL (`href`, `src`) that a user might change MUST be a `{{param}}`.
 - Every color in inline styles or CSS that a user might customize MUST be a `{{param}}`.
 - For sections with repeating items (cards, features, steps, team members), use `param_group` with `{{#items}}...{{/items}}` repeater blocks.
-- After creating any element, run `wp vb-element validate <slug>` to check for missed hardcoded text.
+- Elements that still contain hardcoded user-facing content are rejected on save/import. Do not rely on warnings alone.
+- Run `wp vb-element validate <slug>` if you need to inspect why a definition is being rejected.
 - Use `--require-params` on `wp vb-element create` to enforce that params are always provided.
 
 **Bad** — hardcoded text:
@@ -96,7 +97,7 @@ wp vb-element create --name="Banner" \
   --params-base64="$(printf '[{"param_name":"heading","type":"textfield","heading":"Heading","default":"Hello"}]' | base64)"
 ```
 
-After creation, the CLI automatically validates the element and warns about any hardcoded text.
+After creation, the CLI only succeeds if the element is fully editable. Hardcoded user-facing text, unmatched placeholders, or similar validation issues now block creation.
 
 ### list
 
