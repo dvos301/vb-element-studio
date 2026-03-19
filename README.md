@@ -1,6 +1,6 @@
 # VB Element Studio
 
-**Version:** 1.3.0
+**Version:** 1.4.0
 **Requires:** WordPress 5.0+, PHP 7.4+, WPBakery Page Builder
 **License:** GPL-2.0-or-later
 
@@ -108,7 +108,7 @@ wp vb-element export vb_hero_section > hero.json
 wp vb-element import hero.json
 ```
 
-**place** -- Insert an element into a page wrapped in `[vc_row][vc_column]...[/vc_column][/vc_row]`.
+**place** -- Insert an element into a page wrapped in `[vc_row][vc_column]...[/vc_column][/vc_row]`. Outputs the page URL on success.
 
 ```bash
 wp vb-element place vb_hero_section --page=homepage
@@ -117,6 +117,20 @@ wp vb-element place vb_cta_banner --page=about --position=after:vb_hero_section
 ```
 
 Flags: `--page` (required, accepts ID/slug/title), `--atts` (JSON object), `--position` (`append`|`prepend`|`after:<tag>`).
+
+**remove-from-page** -- Remove an element's shortcode (and its `[vc_row]` wrapper) from a page.
+
+```bash
+wp vb-element remove-from-page vb_hero_section --page=homepage
+wp vb-element remove-from-page vb_cta_banner --page=42 --occurrence=2
+```
+
+**preview** -- Render an element to HTML via CLI for debugging (no browser needed).
+
+```bash
+wp vb-element preview vb_hero_section
+wp vb-element preview vb_hero_section --atts='{"heading":"Hello World"}'
+```
 
 **templates** -- List bundled starter templates.
 
@@ -309,8 +323,10 @@ VB_ES_API::get_templates();
 VB_ES_API::create_from_template( 'hero-section', ['name' => 'Custom Name'] );
 VB_ES_API::create_from_template( 'benefits-cards', ['override_defaults' => ['heading' => 'New']] );
 VB_ES_API::create_batch( [ [...element1...], [...element2...] ] );   // batch create
-VB_ES_API::place_batch( $page_id, ['vb_hero', 'vb_cta'], 'append' );// batch place
-VB_ES_API::validate_element( 'vb_hero_section' );   // check for hardcoded text
+VB_ES_API::place_batch( $page_id, ['vb_hero', 'vb_cta'], 'append' );// batch place, returns URL
+VB_ES_API::remove_from_page( $page_id, 'vb_hero_section' );         // remove from page, returns URL
+VB_ES_API::preview_element( 'vb_hero_section', ['heading' => 'Hi'] ); // render to HTML string
+VB_ES_API::validate_element( 'vb_hero_section' );   // check for hardcoded text + CSS placeholders
 ```
 
 ---

@@ -363,6 +363,9 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
         }
 
         WP_CLI::success( 'Element placed on page.' );
+        if ( is_string( $result ) && $result ) {
+            WP_CLI::log( 'URL: ' . $result );
+        }
     }
 
     /**
@@ -569,6 +572,96 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
         }
 
         WP_CLI::success( count( $elements ) . ' elements placed on page.' );
+        if ( is_string( $result ) && $result ) {
+            WP_CLI::log( 'URL: ' . $result );
+        }
+    }
+
+    /**
+     * Remove an element's shortcode from a page.
+     *
+     * Finds the [vc_row][vc_column][shortcode][/vc_column][/vc_row] block
+     * containing the element and removes it from post_content.
+     *
+     * ## OPTIONS
+     *
+     * <element>
+     * : Element shortcode slug or ID.
+     *
+     * --page=<page>
+     * : Target page ID, slug, or title.
+     *
+     * [--occurrence=<n>]
+     * : Which occurrence to remove if the element appears multiple times. Default: 1.
+     *
+     * ## EXAMPLES
+     *
+     *     wp vb-element remove-from-page vb_hero_section --page=homepage
+     *     wp vb-element remove-from-page vb_cta_banner --page=42 --occurrence=2
+     *
+     * @subcommand remove-from-page
+     */
+    public function remove_from_page( $args, $assoc_args ) {
+        $page = $assoc_args['page'] ?? '';
+        if ( empty( $page ) ) {
+            WP_CLI::error( 'The --page flag is required.' );
+        }
+
+        $occurrence = (int) ( $assoc_args['occurrence'] ?? 1 );
+        if ( $occurrence < 1 ) {
+            $occurrence = 1;
+        }
+
+        $result = VB_ES_API::remove_from_page( $page, $args[0], $occurrence );
+        if ( is_wp_error( $result ) ) {
+            WP_CLI::error( $result->get_error_message() );
+        }
+
+        WP_CLI::success( 'Element removed from page.' );
+        if ( is_string( $result ) && $result ) {
+            WP_CLI::log( 'URL: ' . $result );
+        }
+    }
+
+    /**
+     * Render an element to HTML for preview/debugging.
+     *
+     * Executes the shortcode with the given attributes (or defaults)
+     * and outputs the rendered HTML to stdout.
+     *
+     * ## OPTIONS
+     *
+     * <id-or-slug>
+     * : Element post ID or shortcode slug.
+     *
+     * [--atts=<atts>]
+     * : Shortcode attributes as a JSON object.
+     *
+     * ## EXAMPLES
+     *
+     *     wp vb-element preview vb_hero_section
+     *     wp vb-element preview vb_hero_section --atts='{"heading":"Hello World"}'
+     */
+    public function preview( $args, $assoc_args ) {
+        $atts = [];
+        if ( ! empty( $assoc_args['atts'] ) ) {
+            $atts = json_decode( $assoc_args['atts'], true );
+            if ( json_last_error() !== JSON_ERROR_NONE ) {
+                WP_CLI::error( 'Invalid JSON in --atts: ' . json_last_error_msg() );
+            }
+        }
+
+        $result = VB_ES_API::preview_element( $args[0], $atts );
+        if ( is_wp_error( $result ) ) {
+            WP_CLI::error( $result->get_error_message() );
+        }
+
+        if ( empty( trim( $result ) ) ) {
+            WP_CLI::warning( 'Element rendered empty output. Check that the element exists and shortcodes are registered.' );
+            return;
+        }
+
+        WP_CLI::log( $result );
     }
 
     /**

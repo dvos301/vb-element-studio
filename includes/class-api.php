@@ -243,7 +243,72 @@ class VB_ES_API {
             return $result;
         }
 
-        return true;
+        return get_permalink( $page->ID );
+    }
+
+    /**
+     * Remove an element's shortcode (and its wrapping [vc_row]) from a page.
+     *
+     * @param int|string $page_id     Page post ID, slug, or title.
+     * @param string     $element_tag Element shortcode tag or ID.
+     * @param int        $occurrence  Which occurrence to remove (1-based). Default 1 (first).
+     * @return string|WP_Error Page permalink on success.
+     */
+    public static function remove_from_page( $page_id, $element_tag, $occurrence = 1 ) {
+        $page = self::resolve_page( $page_id );
+        if ( ! $page ) {
+            return new WP_Error( 'page_not_found', 'Page not found: ' . $page_id );
+        }
+
+        $element = self::resolve_element( $element_tag );
+        if ( ! $element ) {
+            return new WP_Error( 'element_not_found', 'Element not found: ' . $element_tag );
+        }
+
+        $tag     = $element['slug'];
+        $content = $page->post_content;
+
+        $pattern = '/\[vc_row\]\[vc_column\]\[' . preg_quote( $tag, '/' ) . '[^\]]*\]\[\/vc_column\]\[\/vc_row\]\n?/';
+
+        $count   = 0;
+        $new_content = preg_replace_callback( $pattern, function ( $match ) use ( $occurrence, &$count ) {
+            $count++;
+            return ( $count === $occurrence ) ? '' : $match[0];
+        }, $content );
+
+        if ( $count === 0 ) {
+            return new WP_Error( 'not_on_page', "Shortcode [{$tag}] not found on page \"{$page->post_title}\" (ID: {$page->ID})." );
+        }
+
+        $new_content = trim( $new_content );
+
+        $result = wp_update_post( [
+            'ID'           => $page->ID,
+            'post_content' => $new_content,
+        ], true );
+
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        return get_permalink( $page->ID );
+    }
+
+    /**
+     * Render an element shortcode to HTML for preview/debugging.
+     *
+     * @param int|string $id_or_slug Element ID or slug.
+     * @param array      $atts       Shortcode attribute overrides.
+     * @return string|WP_Error Rendered HTML string.
+     */
+    public static function preview_element( $id_or_slug, $atts = [] ) {
+        $element = self::resolve_element( $id_or_slug );
+        if ( ! $element ) {
+            return new WP_Error( 'not_found', 'Element not found: ' . $id_or_slug );
+        }
+
+        $shortcode = self::build_shortcode( $element['slug'], $atts );
+        return do_shortcode( $shortcode );
     }
 
     /**
@@ -411,7 +476,7 @@ class VB_ES_API {
             return $result;
         }
 
-        return true;
+        return get_permalink( $page->ID );
     }
 
     /**
@@ -467,6 +532,16 @@ class VB_ES_API {
             } );
             if ( count( $words ) > 3 ) {
                 $warnings[] = 'Hardcoded attribute: "' . mb_substr( $val, 0, 80 ) . '" — should be a {{param}}.';
+            }
+        }
+
+        $raw_css     = $element['raw_css'] ?? '';
+        $param_names = array_column( $params, 'param_name' );
+        preg_match_all( '/\{\{(\w+)\}\}/', $raw_css, $css_token_matches );
+        $css_tokens = array_unique( $css_token_matches[1] ?? [] );
+        foreach ( $css_tokens as $token ) {
+            if ( ! in_array( $token, $param_names, true ) ) {
+                $warnings[] = 'CSS placeholder {{' . $token . '}} has no matching param definition — it will render as literal text.';
             }
         }
 

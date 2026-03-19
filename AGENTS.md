@@ -131,7 +131,7 @@ wp vb-element import hero.json
 
 ### place
 
-Insert an element into a page's `post_content` wrapped in `[vc_row][vc_column]...[/vc_column][/vc_row]`.
+Insert an element into a page's `post_content` wrapped in `[vc_row][vc_column]...[/vc_column][/vc_row]`. Outputs the page URL on success.
 
 ```bash
 wp vb-element place vb_hero_section --page=homepage
@@ -143,6 +143,30 @@ Flags:
 - `--page` (required) -- Page ID, slug, or title.
 - `--atts` -- JSON object of shortcode attribute overrides.
 - `--position` -- `append` (default), `prepend`, or `after:<shortcode_tag>`.
+
+### remove-from-page
+
+Remove an element's shortcode (and its `[vc_row]` wrapper) from a page.
+
+```bash
+wp vb-element remove-from-page vb_hero_section --page=homepage
+wp vb-element remove-from-page vb_cta_banner --page=42 --occurrence=2
+```
+
+Flags:
+- `--page` (required) -- Page ID, slug, or title.
+- `--occurrence` -- Which occurrence to remove if the element appears multiple times. Default: 1.
+
+### preview
+
+Render an element to HTML via CLI for debugging — no browser needed.
+
+```bash
+wp vb-element preview vb_hero_section
+wp vb-element preview vb_hero_section --atts='{"heading":"Hello World"}'
+```
+
+Outputs the fully rendered HTML (with `<style>` block and wrapper div) to stdout. Uses default param values unless overridden with `--atts`.
 
 ### templates
 
@@ -523,8 +547,10 @@ VB_ES_API::get_template( 'hero-section' );
 VB_ES_API::create_from_template( 'hero-section', ['name' => 'Custom Name'] );
 VB_ES_API::create_from_template( 'benefits-cards', ['override_defaults' => ['heading' => 'New']] );
 VB_ES_API::create_batch( [ [...element1...], [...element2...] ] );   // batch create
-VB_ES_API::place_batch( $page_id, ['vb_hero', 'vb_cta'], 'append' );// batch place
-VB_ES_API::validate_element( 'vb_hero_section' );   // returns warnings about hardcoded text
+VB_ES_API::place_batch( $page_id, ['vb_hero', 'vb_cta'], 'append' );// batch place, returns URL
+VB_ES_API::remove_from_page( $page_id, 'vb_hero_section' );         // remove from page, returns URL
+VB_ES_API::preview_element( 'vb_hero_section', ['heading' => 'Hi'] ); // render to HTML string
+VB_ES_API::validate_element( 'vb_hero_section' );   // warnings: hardcoded text + CSS placeholders
 ```
 
 ---
