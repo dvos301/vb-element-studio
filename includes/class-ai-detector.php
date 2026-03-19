@@ -287,10 +287,6 @@ PROMPT;
                 $candidate['warnings'] = array_merge( $candidate['warnings'], $validation['warnings'] );
             }
 
-            if ( ! empty( $global_warnings ) ) {
-                $candidate['warnings'] = array_merge( $candidate['warnings'], $global_warnings );
-            }
-
             $candidate['warnings'] = array_values( array_unique( array_filter( $candidate['warnings'] ) ) );
             $candidates[] = $candidate;
         }
@@ -444,6 +440,10 @@ PROMPT;
     }
 
     private function detect_candidate_sections( $html ) {
+        if ( ! class_exists( 'DOMDocument' ) ) {
+            return [ trim( $html ) ];
+        }
+
         $document = new DOMDocument();
         $internal_errors = libxml_use_internal_errors( true );
         $loaded = $document->loadHTML(
@@ -467,23 +467,43 @@ PROMPT;
             return [ trim( $html ) ];
         }
 
+        $candidates = [];
+
         if ( count( $top_level ) > 1 ) {
-            return array_map( [ $this, 'node_outer_html' ], $top_level );
+            foreach ( $top_level as $node ) {
+                $this->collect_candidate_nodes( $node, $candidates );
+            }
+        } else {
+            $single = $top_level[0];
+            $this->collect_candidate_nodes( $single, $candidates );
         }
 
-        $single = $top_level[0];
-        $section_like_children = [];
-        foreach ( $this->element_children( $single ) as $child ) {
-            if ( $this->is_candidate_section_node( $child ) ) {
-                $section_like_children[] = $child;
+        $candidates = $this->dedupe_candidate_nodes( $candidates );
+
+        if ( empty( $candidates ) ) {
+            if ( count( $top_level ) > 1 ) {
+                $candidates = array_map( [ $this, 'resolve_preferred_candidate_node' ], $top_level );
+            } else {
+                $candidates = [ $this->resolve_preferred_candidate_node( $top_level[0] ) ];
             }
         }
 
-        if ( count( $section_like_children ) > 1 ) {
-            return array_map( [ $this, 'node_outer_html' ], $section_like_children );
+        $sections = [];
+        foreach ( $candidates as $candidate ) {
+            if ( ! $candidate instanceof DOMElement ) {
+                continue;
+            }
+
+            $html_fragment = $this->node_outer_html( $candidate );
+            if ( $html_fragment === '' ) {
+                continue;
+            }
+            $sections[] = $html_fragment;
         }
 
-        return [ $this->node_outer_html( $single ) ];
+        $sections = array_values( array_unique( array_filter( $sections ) ) );
+
+        return ! empty( $sections ) ? $sections : [ trim( $html ) ];
     }
 
     private function element_children( DOMNode $node ) {
@@ -499,16 +519,187 @@ PROMPT;
     }
 
     private function is_candidate_section_node( DOMElement $node ) {
-        $tag_name = strtolower( $node->tagName );
-        if ( in_array( $tag_name, [ 'section', 'article', 'aside', 'header', 'footer', 'main' ], true ) ) {
-            return true;
+        return $this->score_candidate_node( $node ) >= 3;
+    }
+
+    private function collect_candidate_nodes( DOMElement $node, array &$candidates ) {
+        $preferred = $this->resolve_preferred_candidate_node( $node );
+        $children  = $this->element_children( $preferred );
+
+        if ( $this->is_candidate_section_node( $preferred ) ) {
+            $candidates[] = $preferred;
+
+            $strong_children = [];
+            foreach ( $children as $child ) {
+                if ( $this->score_candidate_node( $child ) >= 5 ) {
+                    $strong_children[] = $child;
+                }
+            }
+
+            if ( count( $strong_children ) > 1 ) {
+                foreach ( $strong_children as $child ) {
+                    $this->collect_candidate_nodes( $child, $candidates );
+                }
+            }
+
+            return;
         }
 
-        if ( $tag_name !== 'div' ) {
+        foreach ( $children as $child ) {
+            $this->collect_candidate_nodes( $child, $candidates );
+        }
+    }
+
+    private function resolve_preferred_candidate_node( DOMElement $node ) {
+        $current = $node;
+
+        while ( $this->is_obvious_wrapper_node( $current ) ) {
+            $children = $this->element_children( $current );
+            if ( count( $children ) !== 1 ) {
+                break;
+            }
+            $current = $children[0];
+        }
+
+        return $current;
+    }
+
+    private function dedupe_candidate_nodes( array $nodes ) {
+        $unique = [];
+        foreach ( $nodes as $node ) {
+            if ( ! $node instanceof DOMElement ) {
+                continue;
+            }
+
+            $skip = false;
+            foreach ( $nodes as $other ) {
+                if ( $node === $other || ! $other instanceof DOMElement ) {
+                    continue;
+                }
+
+                if ( $this->node_contains( $node, $other ) ) {
+                    $node_score  = $this->score_candidate_node( $node );
+                    $other_score = $this->score_candidate_node( $other );
+
+                    if ( $this->is_obvious_wrapper_node( $node ) || $other_score >= $node_score ) {
+                        $skip = true;
+                        break;
+                    }
+                }
+            }
+
+            if ( ! $skip ) {
+                $hash = spl_object_hash( $node );
+                $unique[ $hash ] = $node;
+            }
+        }
+
+        return array_values( $unique );
+    }
+
+    private function node_contains( DOMNode $parent, DOMNode $child ) {
+        $current = $child->parentNode;
+        while ( $current ) {
+            if ( $current === $parent ) {
+                return true;
+            }
+            $current = $current->parentNode;
+        }
+
+        return false;
+    }
+
+    private function score_candidate_node( DOMElement $node ) {
+        $tag_name = strtolower( $node->tagName );
+        $score    = 0;
+
+        if ( in_array( $tag_name, [ 'section', 'article', 'aside', 'header', 'footer', 'main' ], true ) ) {
+            $score += 5;
+        }
+
+        $classes = $this->get_node_classes( $node );
+        if ( $this->classes_match_keywords( $classes, [ 'hero', 'service', 'services', 'feature', 'features', 'testimonial', 'testimonials', 'cta', 'banner', 'faq', 'team', 'about', 'contact', 'footer', 'header', 'pricing' ] ) ) {
+            $score += 3;
+        }
+
+        if ( $this->classes_match_keywords( $classes, [ 'container', 'wrapper', 'wrap', 'inner', 'outer', 'row', 'col', 'column', 'columns', 'grid', 'layout', 'content-wrap', 'page-width', 'section-wrap' ] ) ) {
+            $score -= 4;
+        }
+
+        if ( $this->node_has_heading( $node ) ) {
+            $score += 3;
+        }
+
+        if ( $this->node_has_actionable_content( $node ) ) {
+            $score += 2;
+        }
+
+        $children = $this->element_children( $node );
+        if ( count( $children ) >= 2 ) {
+            $score += 1;
+        }
+
+        if ( $this->node_text_length( $node ) >= 40 ) {
+            $score += 1;
+        }
+
+        if ( count( $children ) === 1 && ! $this->node_has_heading( $node ) && $this->node_text_length( $node ) < 40 ) {
+            $score -= 2;
+        }
+
+        return $score;
+    }
+
+    private function is_obvious_wrapper_node( DOMElement $node ) {
+        $classes = $this->get_node_classes( $node );
+        $children = $this->element_children( $node );
+
+        if ( count( $children ) !== 1 ) {
             return false;
         }
 
-        return count( $this->element_children( $node ) ) > 0;
+        if ( $this->classes_match_keywords( $classes, [ 'container', 'wrapper', 'wrap', 'inner', 'outer', 'row', 'col', 'column', 'columns', 'grid', 'layout', 'content-wrap', 'page-width', 'section-wrap' ] ) ) {
+            return true;
+        }
+
+        return ! $this->node_has_heading( $node ) && $this->node_text_length( $node ) < 30;
+    }
+
+    private function get_node_classes( DOMElement $node ) {
+        $class_attr = trim( (string) $node->getAttribute( 'class' ) );
+        if ( $class_attr === '' ) {
+            return [];
+        }
+
+        return array_values( array_filter( preg_split( '/\s+/', strtolower( $class_attr ) ) ) );
+    }
+
+    private function classes_match_keywords( array $classes, array $keywords ) {
+        foreach ( $classes as $class_name ) {
+            foreach ( $keywords as $keyword ) {
+                if ( strpos( $class_name, $keyword ) !== false ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function node_has_heading( DOMElement $node ) {
+        return (bool) preg_match( '/<h[1-3]\b/i', $this->node_outer_html( $node ) );
+    }
+
+    private function node_has_actionable_content( DOMElement $node ) {
+        $html = $this->node_outer_html( $node );
+
+        return (bool) preg_match( '/<(a|button|form|img|ul|ol)\b/i', $html );
+    }
+
+    private function node_text_length( DOMElement $node ) {
+        $text = trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( $this->node_outer_html( $node ) ) ) );
+
+        return function_exists( 'mb_strlen' ) ? mb_strlen( $text ) : strlen( $text );
     }
 
     private function node_outer_html( DOMNode $node ) {

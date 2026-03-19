@@ -3,7 +3,7 @@
  * Plugin Name: VB Element Studio
  * Plugin URI:  https://example.com/vb-element-studio
  * Description: Create custom WPBakery Page Builder elements from AI-generated HTML/CSS with automatic parameter detection.
- * Version:     1.5.0
+ * Version:     1.5.1
  * Author:      VB Element Studio
  * Author URI:  https://example.com
  * License:     GPL-2.0-or-later
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'VB_ES_VERSION', '1.5.0' );
+define( 'VB_ES_VERSION', '1.5.1' );
 define( 'VB_ES_PATH', plugin_dir_path( __FILE__ ) );
 define( 'VB_ES_URL', plugin_dir_url( __FILE__ ) );
 

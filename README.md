@@ -1,6 +1,6 @@
 # VB Element Studio
 
-**Version:** 1.5.0
+**Version:** 1.5.1
 **Requires:** WordPress 5.0+, PHP 7.4+, WPBakery Page Builder
 **License:** GPL-2.0-or-later
 
@@ -40,7 +40,7 @@ The admin UI now supports a paste-first import workflow for AI-generated snippet
 4. Create the selected elements in batch
 5. Optionally place the created elements onto a page immediately
 
-If you paste a full landing page with multiple `<section>` blocks, the importer attempts to split them into separate reusable VB elements while duplicating extracted CSS for review. The review step surfaces warnings when global/shared CSS may need manual cleanup.
+If you paste a full landing page with multiple `<section>` blocks, the importer attempts to split them into separate reusable VB elements while suppressing obvious layout wrappers (`container`, `row`, `col`, etc.) and deduplicating parent/child candidates. The review step still surfaces global/shared CSS warnings when manual cleanup may be needed.
 
 ---
 
