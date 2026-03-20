@@ -545,6 +545,7 @@ class VB_ES_API {
     }
 
     private static function build_validation_result( $name, $slug, $template, $raw_css, $params ) {
+        $blocking_issues = [];
         $warnings = [];
         $template = (string) $template;
         $raw_css  = (string) $raw_css;
@@ -554,12 +555,12 @@ class VB_ES_API {
         $css_tokens = self::extract_placeholder_tokens( $raw_css );
 
         if ( empty( $params ) ) {
-            $warnings[] = 'Element has no parameters defined. All user-facing text must be parameterized with {{param_name}} placeholders.';
+            $blocking_issues[] = 'Element has no parameters defined. All user-facing text must be parameterized with {{param_name}} placeholders.';
         }
 
         foreach ( $params as $param ) {
             if ( ( $param['type'] ?? '' ) === 'param_group' && empty( $param['params'] ) ) {
-                $warnings[] = 'Param group {{' . ( $param['param_name'] ?? 'items' ) . '}} has no nested params defined.';
+                $blocking_issues[] = 'Param group {{' . ( $param['param_name'] ?? 'items' ) . '}} has no nested params defined.';
             }
         }
 
@@ -575,7 +576,7 @@ class VB_ES_API {
             if ( mb_strlen( $text ) > 80 ) {
                 $preview .= '...';
             }
-            $warnings[] = 'Hardcoded text: "' . $preview . '" — should be a {{param}}.';
+            $blocking_issues[] = 'Hardcoded text: "' . $preview . '" — should be a {{param}}.';
         }
 
         preg_match_all( '/\b(alt|title|placeholder|aria-label)\s*=\s*"([^"]*)"/i', $template, $attr_matches, PREG_SET_ORDER );
@@ -585,7 +586,7 @@ class VB_ES_API {
             if ( empty( $val ) || self::contains_placeholder( $val ) ) {
                 continue;
             }
-            $warnings[] = 'Hardcoded attribute ' . $attr . '="' . mb_substr( $val, 0, 80 ) . '" — should be a {{param}}.';
+            $blocking_issues[] = 'Hardcoded attribute ' . $attr . '="' . mb_substr( $val, 0, 80 ) . '" — should be a {{param}}.';
         }
 
         preg_match_all( '/\b(href|src)\s*=\s*"([^"]*)"/i', $template, $url_matches, PREG_SET_ORDER );
@@ -595,7 +596,7 @@ class VB_ES_API {
             if ( empty( $val ) || self::contains_placeholder( $val ) ) {
                 continue;
             }
-            $warnings[] = 'Hardcoded ' . $attr . '="' . mb_substr( $val, 0, 80 ) . '" — URLs and media sources should be parameterized.';
+            $blocking_issues[] = 'Hardcoded ' . $attr . '="' . mb_substr( $val, 0, 80 ) . '" — URLs and media sources should be parameterized.';
         }
 
         $css_without_placeholders = preg_replace( '/\{\{[^}]+\}\}/', '', $raw_css );
@@ -606,13 +607,13 @@ class VB_ES_API {
 
         foreach ( $template_tokens as $token ) {
             if ( ! in_array( $token, $param_names, true ) ) {
-                $warnings[] = 'Template placeholder {{' . $token . '}} has no matching param definition.';
+                $blocking_issues[] = 'Template placeholder {{' . $token . '}} has no matching param definition.';
             }
         }
 
         foreach ( $css_tokens as $token ) {
             if ( ! in_array( $token, $param_names, true ) ) {
-                $warnings[] = 'CSS placeholder {{' . $token . '}} has no matching param definition — it will render as literal text.';
+                $blocking_issues[] = 'CSS placeholder {{' . $token . '}} has no matching param definition — it will render as literal text.';
             }
         }
 
@@ -624,11 +625,12 @@ class VB_ES_API {
         }
 
         return [
-            'element'     => $name,
-            'slug'        => $slug,
-            'param_count' => count( $params ),
-            'warnings'    => array_values( array_unique( $warnings ) ),
-            'valid'       => empty( $warnings ),
+            'element'         => $name,
+            'slug'            => $slug,
+            'param_count'     => count( $params ),
+            'blocking_issues' => array_values( array_unique( $blocking_issues ) ),
+            'warnings'        => array_values( array_unique( array_merge( $blocking_issues, $warnings ) ) ),
+            'valid'           => empty( $blocking_issues ),
         ];
     }
 
@@ -724,11 +726,11 @@ class VB_ES_API {
             return null;
         }
 
-        $warnings = array_slice( array_values( array_unique( $validation['warnings'] ?? [] ) ), 0, 12 );
+        $issues = array_slice( array_values( array_unique( $validation['blocking_issues'] ?? $validation['warnings'] ?? [] ) ), 0, 12 );
 
         return new WP_Error(
             'validation_failed',
-            'Element must be fully editable before it can be saved: ' . implode( ' | ', $warnings )
+            'Element must be fully editable before it can be saved: ' . implode( ' | ', $issues )
         );
     }
 

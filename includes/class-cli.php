@@ -701,11 +701,28 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
         WP_CLI::log( "Parameters: {$result['param_count']}" );
 
         if ( $result['valid'] ) {
-            WP_CLI::success( 'No hardcoded text detected.' );
+            if ( ! empty( $result['warnings'] ) ) {
+                WP_CLI::warning( count( $result['warnings'] ) . ' non-blocking warning(s) found:' );
+                foreach ( $result['warnings'] as $i => $warning ) {
+                    WP_CLI::log( '  ' . ( $i + 1 ) . '. ' . $warning );
+                }
+            } else {
+                WP_CLI::success( 'No blocking validation issues detected.' );
+            }
         } else {
-            WP_CLI::warning( count( $result['warnings'] ) . ' issue(s) found:' );
-            foreach ( $result['warnings'] as $i => $warning ) {
+            $issues = $result['blocking_issues'] ?? $result['warnings'];
+            WP_CLI::warning( count( $issues ) . ' blocking issue(s) found:' );
+            foreach ( $issues as $i => $warning ) {
                 WP_CLI::log( '  ' . ( $i + 1 ) . '. ' . $warning );
+            }
+
+            $non_blocking_warnings = array_values( array_diff( $result['warnings'], $issues ) );
+            if ( ! empty( $non_blocking_warnings ) ) {
+                WP_CLI::log( '' );
+                WP_CLI::warning( count( $non_blocking_warnings ) . ' additional non-blocking warning(s):' );
+                foreach ( $non_blocking_warnings as $i => $warning ) {
+                    WP_CLI::log( '  ' . ( $i + 1 ) . '. ' . $warning );
+                }
             }
         }
     }
