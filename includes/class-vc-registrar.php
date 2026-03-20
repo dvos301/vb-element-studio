@@ -75,7 +75,7 @@ class VB_ES_VC_Registrar {
                 $vc_param['params'] = $group_params;
 
                 if ( isset( $param['default'] ) && is_array( $param['default'] ) ) {
-                    $vc_param['value'] = urlencode( wp_json_encode( $param['default'] ) );
+                    $vc_param['value'] = urlencode( wp_json_encode( $param['default'], JSON_UNESCAPED_UNICODE ) );
                 }
 
                 $params[] = $vc_param;

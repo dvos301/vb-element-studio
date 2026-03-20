@@ -207,7 +207,7 @@ class VB_ES_API {
      */
     public static function import_element( $data ) {
         if ( is_string( $data ) ) {
-            $data = json_decode( $data, true );
+            $data = json_decode( $data, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
             if ( json_last_error() !== JSON_ERROR_NONE ) {
                 return new WP_Error( 'invalid_json', 'Failed to parse JSON: ' . json_last_error_msg() );
             }
@@ -283,11 +283,7 @@ class VB_ES_API {
         }
 
         $element = self::resolve_element( $element_tag );
-        if ( ! $element ) {
-            return new WP_Error( 'element_not_found', 'Element not found: ' . $element_tag );
-        }
-
-        $tag     = $element['slug'];
+        $tag     = $element ? $element['slug'] : sanitize_key( $element_tag );
         $content = $page->post_content;
 
         $pattern = '/\[vc_row\]\[vc_column\]\[' . preg_quote( $tag, '/' ) . '[^\]]*\]\[\/vc_column\]\[\/vc_row\]\n?/';
@@ -350,7 +346,7 @@ class VB_ES_API {
             if ( strpos( $basename, '_' ) === 0 ) {
                 continue;
             }
-            $data = json_decode( file_get_contents( $file ), true );
+            $data = json_decode( file_get_contents( $file ), true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
             if ( is_array( $data ) && ! empty( $data['name'] ) ) {
                 $data['template_slug'] = $basename;
                 $templates[] = $data;
@@ -371,7 +367,7 @@ class VB_ES_API {
         if ( ! file_exists( $file ) ) {
             return null;
         }
-        $data = json_decode( file_get_contents( $file ), true );
+        $data = json_decode( file_get_contents( $file ), true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( is_array( $data ) && ! empty( $data['name'] ) ) {
             $data['template_slug'] = $slug;
             return $data;
@@ -658,7 +654,7 @@ class VB_ES_API {
         if ( isset( $args['params'] ) ) {
             $params = $args['params'];
             if ( is_array( $params ) ) {
-                $args['params_json'] = wp_json_encode( $params );
+                $args['params_json'] = wp_json_encode( $params, JSON_UNESCAPED_UNICODE );
             } elseif ( is_string( $params ) ) {
                 $args['params_json'] = $params;
             }
@@ -715,7 +711,7 @@ class VB_ES_API {
             return $params_json;
         }
 
-        $decoded = json_decode( (string) $params_json, true );
+        $decoded = json_decode( (string) $params_json, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
 
         return is_array( $decoded ) ? $decoded : [];
     }
@@ -764,7 +760,7 @@ class VB_ES_API {
         $parts = [];
         foreach ( $atts as $key => $value ) {
             if ( is_array( $value ) ) {
-                $value = urlencode( wp_json_encode( $value ) );
+                $value = urlencode( wp_json_encode( $value, JSON_UNESCAPED_UNICODE ) );
             }
             $parts[] = sanitize_key( $key ) . '="' . esc_attr( $value ) . '"';
         }

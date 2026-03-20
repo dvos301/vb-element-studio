@@ -18,6 +18,7 @@ VB Element Studio is a WordPress plugin that creates custom WPBakery Page Builde
 - Elements that still contain hardcoded user-facing content are rejected on save/import. Do not rely on warnings alone.
 - Run `wp vb-element validate <slug>` if you need to inspect why a definition is being rejected.
 - Use `--require-params` on `wp vb-element create` to enforce that params are always provided.
+- **Never use `{{param}}` placeholders inside HTML `style` attributes.** WordPress's HTML sanitizer validates CSS values at save time. Put dynamic colors, backgrounds, and other style values in the **CSS template** instead. Example: instead of `<section style="background:{{bg_color}}">`, use a CSS rule `.my-section { background: {{bg_color}}; }`.
 
 **Bad** — hardcoded text:
 ```html
@@ -154,7 +155,7 @@ Flags:
 
 ### remove-from-page
 
-Remove an element's shortcode (and its `[vc_row]` wrapper) from a page.
+Remove an element's shortcode (and its `[vc_row]` wrapper) from a page. Works by searching `post_content` for the shortcode tag — the element post does **not** need to exist, so you can clean up orphaned shortcodes after deleting an element.
 
 ```bash
 wp vb-element remove-from-page vb_hero_section --page=homepage
@@ -237,10 +238,12 @@ The JSON file is an array where each entry has the same keys as `create` flags (
 
 ### place-batch
 
-Place multiple elements on a page in a single `post_content` update, preserving order.
+Place multiple elements on a page in a single `post_content` update, preserving order. Accepts `--elements` (JSON string) or `--elements-base64` (base64-encoded JSON, avoids SSH quoting issues).
 
 ```bash
 wp vb-element place-batch --page=42 --elements='["vb_hero","vb_benefits","vb_cta"]'
+# SSH-safe alternative:
+wp vb-element place-batch --page=42 --elements-base64="$(echo '["vb_hero","vb_cta"]' | base64)"
 ```
 
 Each entry in the `--elements` array can be a string (slug only) or an object with custom attributes:

@@ -50,6 +50,8 @@ If you paste a full landing page with multiple `<section>` blocks, the importer 
 
 Elements that still contain hardcoded user-facing content are now rejected on save/import. The plugin will not create an element unless the editable content is fully represented in params.
 
+**Never use `{{param}}` placeholders inside HTML `style` attributes.** WordPress's HTML sanitizer validates CSS values at save time and will strip attributes containing mustache tokens. Put dynamic colors, backgrounds, and other style values in the **CSS template** instead. Example: instead of `<section style="background:{{bg_color}}">`, use a CSS rule `.my-section { background: {{bg_color}}; }`.
+
 ---
 
 ## WP-CLI Commands (AI Agent / SSH Reference)
@@ -133,7 +135,7 @@ wp vb-element place vb_cta_banner --page=about --position=after:vb_hero_section
 
 Flags: `--page` (required, accepts ID/slug/title), `--atts` (JSON object), `--position` (`append`|`prepend`|`after:<tag>`).
 
-**remove-from-page** -- Remove an element's shortcode (and its `[vc_row]` wrapper) from a page.
+**remove-from-page** -- Remove an element's shortcode (and its `[vc_row]` wrapper) from a page. Works by shortcode tag alone — the element post does not need to exist, so orphaned shortcodes can be cleaned up after deletion.
 
 ```bash
 wp vb-element remove-from-page vb_hero_section --page=homepage
@@ -169,11 +171,11 @@ cat elements.json | wp vb-element create-batch -
 wp vb-element create-batch elements.json --require-params
 ```
 
-**place-batch** -- Place multiple elements on a page in one update, preserving order.
+**place-batch** -- Place multiple elements on a page in one update, preserving order. Accepts `--elements` (JSON string) or `--elements-base64` (base64-encoded JSON, avoids SSH quoting issues).
 
 ```bash
 wp vb-element place-batch --page=42 --elements='["vb_hero","vb_benefits","vb_cta"]'
-wp vb-element place-batch --page=homepage --elements='[{"slug":"vb_hero","atts":{"heading":"Hi"}},"vb_cta"]'
+wp vb-element place-batch --page=homepage --elements-base64="$(echo '["vb_hero","vb_cta"]' | base64)"
 ```
 
 **validate** -- Scan an element for hardcoded text that should be parameterized.

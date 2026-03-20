@@ -161,7 +161,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
         $assoc_args = wp_parse_args( $assoc_args, [ 'format' => 'json' ] );
 
         if ( $assoc_args['format'] === 'json' ) {
-            WP_CLI::log( wp_json_encode( $element, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) );
+            WP_CLI::log( wp_json_encode( $element, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
             return;
         }
 
@@ -281,7 +281,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
             WP_CLI::error( $data->get_error_message() );
         }
 
-        WP_CLI::log( wp_json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) );
+        WP_CLI::log( wp_json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
     }
 
     /**
@@ -349,7 +349,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
 
         $atts = [];
         if ( ! empty( $assoc_args['atts'] ) ) {
-            $atts = json_decode( $assoc_args['atts'], true );
+            $atts = json_decode( $assoc_args['atts'], true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
             if ( json_last_error() !== JSON_ERROR_NONE ) {
                 WP_CLI::error( 'Invalid JSON in --atts: ' . json_last_error_msg() );
             }
@@ -431,7 +431,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
      */
     public function create_from_template( $args, $assoc_args ) {
         if ( ! empty( $assoc_args['override-defaults'] ) ) {
-            $decoded = json_decode( $assoc_args['override-defaults'], true );
+            $decoded = json_decode( $assoc_args['override-defaults'], true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
             if ( json_last_error() !== JSON_ERROR_NONE ) {
                 WP_CLI::error( 'Invalid JSON in --override-defaults: ' . json_last_error_msg() );
             }
@@ -480,7 +480,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
             $json = file_get_contents( $file );
         }
 
-        $elements = json_decode( $json, true );
+        $elements = json_decode( $json, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( json_last_error() !== JSON_ERROR_NONE ) {
             WP_CLI::error( 'Invalid JSON: ' . json_last_error_msg() );
         }
@@ -530,10 +530,13 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
      * --page=<page>
      * : Target page ID, slug, or title.
      *
-     * --elements=<json>
+     * [--elements=<json>]
      * : JSON array of element slugs or objects. Each entry can be:
      *   - A string: shortcode slug (no custom attributes)
      *   - An object: {"slug":"vb_hero","atts":{"heading":"Hello"}}
+     *
+     * [--elements-base64=<base64>]
+     * : Same as --elements but base64-encoded (avoids SSH quoting issues).
      *
      * [--position=<position>]
      * : Where to insert: append (default) or prepend.
@@ -541,7 +544,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
      * ## EXAMPLES
      *
      *     wp vb-element place-batch --page=42 --elements='["vb_hero","vb_benefits","vb_cta"]'
-     *     wp vb-element place-batch --page=homepage --elements='[{"slug":"vb_hero","atts":{"heading":"Hello"}},{"slug":"vb_cta"}]'
+     *     wp vb-element place-batch --page=homepage --elements-base64="$(echo '["vb_hero","vb_cta"]' | base64)"
      *
      * @subcommand place-batch
      */
@@ -551,12 +554,20 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
             WP_CLI::error( 'The --page flag is required.' );
         }
 
-        $elements_json = $assoc_args['elements'] ?? '';
+        $elements_json = '';
+        if ( ! empty( $assoc_args['elements-base64'] ) ) {
+            $elements_json = base64_decode( $assoc_args['elements-base64'] );
+            if ( $elements_json === false ) {
+                WP_CLI::error( '--elements-base64 is not valid base64.' );
+            }
+        } elseif ( ! empty( $assoc_args['elements'] ) ) {
+            $elements_json = $assoc_args['elements'];
+        }
         if ( empty( $elements_json ) ) {
-            WP_CLI::error( 'The --elements flag is required.' );
+            WP_CLI::error( 'Either --elements or --elements-base64 is required.' );
         }
 
-        $elements = json_decode( $elements_json, true );
+        $elements = json_decode( $elements_json, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( json_last_error() !== JSON_ERROR_NONE ) {
             WP_CLI::error( 'Invalid JSON in --elements: ' . json_last_error_msg() );
         }
@@ -645,7 +656,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
     public function preview( $args, $assoc_args ) {
         $atts = [];
         if ( ! empty( $assoc_args['atts'] ) ) {
-            $atts = json_decode( $assoc_args['atts'], true );
+            $atts = json_decode( $assoc_args['atts'], true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
             if ( json_last_error() !== JSON_ERROR_NONE ) {
                 WP_CLI::error( 'Invalid JSON in --atts: ' . json_last_error_msg() );
             }
@@ -693,7 +704,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
         $format = $assoc_args['format'] ?? 'table';
 
         if ( $format === 'json' ) {
-            WP_CLI::log( wp_json_encode( $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) );
+            WP_CLI::log( wp_json_encode( $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
             return;
         }
 
@@ -798,7 +809,7 @@ class VB_ES_CLI_Command extends WP_CLI_Command {
      */
     private function decode_params_arg( $assoc_args ) {
         if ( isset( $assoc_args['params'] ) && is_string( $assoc_args['params'] ) ) {
-            $decoded = json_decode( $assoc_args['params'], true );
+            $decoded = json_decode( $assoc_args['params'], true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
             if ( json_last_error() !== JSON_ERROR_NONE ) {
                 WP_CLI::error( 'Invalid JSON in --params: ' . json_last_error_msg() );
             }

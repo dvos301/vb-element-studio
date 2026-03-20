@@ -49,7 +49,7 @@ class VB_ES_Shortcode_Handler {
             if ( $type === 'param_group' ) {
                 $default_val = $param['default'] ?? [];
                 $defaults[ $param['param_name'] ] = is_array( $default_val )
-                    ? urlencode( wp_json_encode( $default_val ) )
+                    ? urlencode( wp_json_encode( $default_val, JSON_UNESCAPED_UNICODE ) )
                     : $default_val;
             } else {
                 $defaults[ $param['param_name'] ] = $param['default'] ?? '';
@@ -62,18 +62,7 @@ class VB_ES_Shortcode_Handler {
         $atts = shortcode_atts( $defaults, $atts, $tag );
 
         $output = $this->render_repeater_blocks( $html_template, $params, $atts );
-
-        foreach ( $params as $param ) {
-            $name  = $param['param_name'];
-            $type  = $param['type'] ?? 'textfield';
-            if ( $type === 'param_group' ) {
-                continue;
-            }
-            $value = $atts[ $name ] ?? '';
-
-            $value = $this->sanitize_param_value( $value, $type );
-            $output = str_replace( '{{' . $name . '}}', $value, $output );
-        }
+        $output = $this->replace_scalar_placeholders( $output, $params, $atts );
 
         $allow_unfiltered = get_option( 'vb_es_allow_unfiltered_html', '0' ) === '1';
         if ( ! $allow_unfiltered || ! current_user_can( 'unfiltered_html' ) ) {
@@ -90,14 +79,7 @@ class VB_ES_Shortcode_Handler {
 
         $class_attr = ! empty( $wrapper_classes ) ? ' class="' . esc_attr( implode( ' ', $wrapper_classes ) ) . '"' : '';
 
-        foreach ( $params as $param ) {
-            $name = $param['param_name'];
-            $type = $param['type'] ?? 'textfield';
-            if ( $type === 'param_group' ) { continue; }
-            $value = $atts[ $name ] ?? '';
-            $value = $this->sanitize_param_value( $value, $type );
-            $scoped_css = str_replace( '{{' . $name . '}}', $value, $scoped_css );
-        }
+        $scoped_css = $this->replace_scalar_placeholders( $scoped_css, $params, $atts );
 
         if ( ! empty( $scope_id ) && ! empty( $instance_scope_id ) ) {
             $scoped_css = str_replace( '#' . $scope_id, '#' . $instance_scope_id, $scoped_css );
@@ -216,6 +198,23 @@ class VB_ES_Shortcode_Handler {
         );
     }
 
+    private function replace_scalar_placeholders( $content, $params, $atts ) {
+        foreach ( $params as $param ) {
+            $name = $param['param_name'] ?? '';
+            $type = $param['type'] ?? 'textfield';
+
+            if ( $name === '' || $type === 'param_group' ) {
+                continue;
+            }
+
+            $value   = $atts[ $name ] ?? '';
+            $value   = $this->sanitize_param_value( $value, $type );
+            $content = str_replace( '{{' . $name . '}}', $value, $content );
+        }
+
+        return $content;
+    }
+
     private function decode_param_group_value( $value ) {
         if ( empty( $value ) ) {
             return [];
@@ -224,12 +223,12 @@ class VB_ES_Shortcode_Handler {
             return $value;
         }
 
-        $decoded = json_decode( urldecode( $value ), true );
+        $decoded = json_decode( urldecode( $value ), true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( is_array( $decoded ) ) {
             return $decoded;
         }
 
-        $decoded = json_decode( $value, true );
+        $decoded = json_decode( $value, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( is_array( $decoded ) ) {
             return $decoded;
         }

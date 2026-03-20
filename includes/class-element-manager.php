@@ -59,11 +59,11 @@ class VB_ES_Element_Manager {
         update_post_meta( $post_id, '_vb_description', sanitize_textarea_field( $data['description'] ?? '' ) );
         update_post_meta( $post_id, '_vb_icon', sanitize_text_field( $data['icon'] ?? 'dashicons-editor-code' ) );
         update_post_meta( $post_id, '_vb_category', sanitize_text_field( $data['category'] ?? 'VB Elements' ) );
-        update_post_meta( $post_id, '_vb_raw_html', wp_kses( $sanitized['raw_html'], self::allowed_html() ) );
+        update_post_meta( $post_id, '_vb_raw_html', self::kses_with_placeholders( $sanitized['raw_html'] ) );
         update_post_meta( $post_id, '_vb_raw_css', (string) $sanitized['raw_css'] );
-        update_post_meta( $post_id, '_vb_html_template', wp_kses( $sanitized['html_template'], self::allowed_html() ) );
-        update_post_meta( $post_id, '_vb_sanitization_notes', wp_json_encode( $sanitized['notes'] ) );
-        update_post_meta( $post_id, '_vb_params', wp_json_encode( $params ) );
+        update_post_meta( $post_id, '_vb_html_template', self::kses_with_placeholders( $sanitized['html_template'] ) );
+        update_post_meta( $post_id, '_vb_sanitization_notes', wp_json_encode( $sanitized['notes'], JSON_UNESCAPED_UNICODE ) );
+        update_post_meta( $post_id, '_vb_params', wp_json_encode( $params, JSON_UNESCAPED_UNICODE ) );
 
         $scope_id = get_post_meta( $post_id, '_vb_scope_id', true );
         if ( empty( $scope_id ) ) {
@@ -93,7 +93,7 @@ class VB_ES_Element_Manager {
         }
 
         $params_raw = get_post_meta( $post_id, '_vb_params', true );
-        $params = json_decode( $params_raw, true );
+        $params = json_decode( $params_raw, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( ! is_array( $params ) ) {
             $params = [];
         }
@@ -114,7 +114,7 @@ class VB_ES_Element_Manager {
             'scope_id'      => get_post_meta( $post_id, '_vb_scope_id', true ),
             'params'        => $params,
             'params_json'   => $params_raw ?: '[]',
-            'sanitization_notes' => json_decode( (string) get_post_meta( $post_id, '_vb_sanitization_notes', true ), true ) ?: [],
+            'sanitization_notes' => json_decode( (string) get_post_meta( $post_id, '_vb_sanitization_notes', true ), true, 512, JSON_INVALID_UTF8_SUBSTITUTE ) ?: [],
         ];
     }
 
@@ -172,7 +172,7 @@ class VB_ES_Element_Manager {
             return [];
         }
 
-        $params = json_decode( $params_json, true );
+        $params = json_decode( $params_json, true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
         if ( json_last_error() !== JSON_ERROR_NONE ) {
             return new WP_Error( 'invalid_params_json', 'Parameters JSON is invalid: ' . json_last_error_msg() );
         }
@@ -235,7 +235,7 @@ class VB_ES_Element_Manager {
 
     private function normalize_param_group_default( $default ) {
         if ( is_string( $default ) ) {
-            $decoded = json_decode( wp_unslash( $default ), true );
+            $decoded = json_decode( wp_unslash( $default ), true, 512, JSON_INVALID_UTF8_SUBSTITUTE );
             if ( json_last_error() === JSON_ERROR_NONE ) {
                 $default = $decoded;
             }
@@ -257,7 +257,7 @@ class VB_ES_Element_Manager {
                 if ( $clean_key === '' ) {
                     continue;
                 }
-                $clean_item[ $clean_key ] = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '';
+                $clean_item[ $clean_key ] = is_scalar( $value ) ? $this->sanitize_param_default( (string) $value, 'textfield' ) : '';
             }
 
             if ( ! empty( $clean_item ) ) {
@@ -363,10 +363,40 @@ class VB_ES_Element_Manager {
         $allowed['radialGradient'] = $svg_attrs;
         $allowed['stop']     = array_merge( $svg_attrs, [ 'offset' => true, 'stop-color' => true, 'stop-opacity' => true ] );
 
-        $allowed['section']  = [ 'class' => true, 'id' => true, 'style' => true ];
+        $style_tags = [ 'section', 'div', 'span', 'p', 'a', 'img', 'ul', 'ol', 'li', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ];
+        foreach ( $style_tags as $tag ) {
+            if ( ! isset( $allowed[ $tag ] ) || ! is_array( $allowed[ $tag ] ) ) {
+                $allowed[ $tag ] = [];
+            }
+            $allowed[ $tag ]['style'] = true;
+            $allowed[ $tag ]['class'] = true;
+            $allowed[ $tag ]['id']    = true;
+        }
+
+        $allowed['section']  = array_merge( $allowed['section'], [ 'class' => true, 'id' => true, 'style' => true ] );
         $allowed['link']     = [ 'rel' => true, 'href' => true, 'type' => true, 'media' => true ];
 
         return $allowed;
+    }
+
+    /**
+     * Run wp_kses on HTML while preserving {{placeholder}} tokens.
+     *
+     * wp_kses strips style attributes whose values contain {{…}} because
+     * the mustache syntax is not valid CSS.  We swap placeholders for safe
+     * tokens before kses and restore them afterwards.
+     */
+    public static function kses_with_placeholders( $html ) {
+        $map = [];
+        $html = preg_replace_callback( '/\{\{([#\/]?\w+)\}\}/', function ( $m ) use ( &$map ) {
+            $token = 'VBES' . md5( $m[0] ) . 'PH';
+            $map[ $token ] = $m[0];
+            return $token;
+        }, (string) $html );
+
+        $html = wp_kses( $html, self::allowed_html() );
+
+        return str_replace( array_keys( $map ), array_values( $map ), $html );
     }
 
     private function sanitize_component_input( $raw_html, $html_template, $raw_css ) {
