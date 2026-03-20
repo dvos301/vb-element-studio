@@ -63,6 +63,7 @@ class VB_ES_Shortcode_Handler {
 
         $output = $this->render_repeater_blocks( $html_template, $params, $atts );
         $output = $this->replace_scalar_placeholders( $output, $params, $atts );
+        $output = do_shortcode( $output );
 
         $allow_unfiltered = get_option( 'vb_es_allow_unfiltered_html', '0' ) === '1';
         if ( ! $allow_unfiltered || ! current_user_can( 'unfiltered_html' ) ) {
